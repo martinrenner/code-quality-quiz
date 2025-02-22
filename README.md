@@ -24,7 +24,7 @@ App (např. Calculator)
 
 ## **Proč jsou ukázky na GitHubu?**
 
-Ukázky kódu mají běžně 150–250 řádků, což by v prostředí Google Forms bylo nepřehledné. Proto jsou všechny kódy umístěny zde, kde si je respondenti mohou pohodlně prohlédnout. Jednotlivé ukázky navíc mají syntax highlighting.
+Ukázky kódu mají běžně 150–250 řádků, což by v prostředí Google Forms bylo nepřehledné. Proto jsou všechny kódy umístěny zde, kde si je respondenti mohou pohodlně prohlédnout. Jednotlivé ukázky mají navíc syntax highlighting.
 
 ## **Jak probíhá hodnocení?**
 
@@ -38,4 +38,4 @@ Každý stupeň lze v rámci jedné otázky použít pouze jednou.
 
 ## **Vyhodnocení**
 
-Výsledky dotazníku a kvantitativní analýza budou součástí mé bakalářské práce. Po dokončení budou veřejně dostupné.
+Výsledky dotazníku a kvantitativní analýza dalších atributů kvality kódu budou součástí mé bakalářské práce, která bude po dokončení veřejně dostupná.
