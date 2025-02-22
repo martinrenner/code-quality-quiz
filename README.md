@@ -1,1 +1,1 @@
-# code-quality-quiz
+# Code Quality Quiz - Examples
