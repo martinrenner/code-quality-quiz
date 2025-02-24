@@ -1,91 +1,199 @@
 
-class Task:
-    def __init__(self, task_id, task_name, task_description, is_finished=False):
-        self.task_id = task_id
-        self.task_name = task_name
-        self.task_description = task_description
-        self.is_finished = is_finished
-
-    def to_dict(self):
-        return {
-            "id": self.task_id,
-            "task_name": self.task_name,
-            "task_description": self.task_description,
-            "is_finished": self.is_finished
-        }
-
+from typing import Dict, List, Optional
+from datetime import datetime
+import re
 
 class TaskManager:
+    """
+    A class to manage todo tasks with basic CRUD operations.
+    
+    Attributes:
+        _tasks (Dict): Internal storage for tasks
+        _next_id (int): Counter for generating unique task IDs
+    """
+    
     def __init__(self):
-        self.tasks = []
-        self.next_id = 1
+        """Initialize an empty task manager."""
+        self._tasks: Dict[int, dict] = {}
+        self._next_id: int = 1
+
+    def _validate_string_input(self, text: str, field_name: str) -> None:
+        """
+        Validate string input for task fields.
+        
+        Args:
+            text: String to validate
+            field_name: Name of the field being validated
+            
+        Raises:
+            ValueError: If input is invalid
+        """
+        if not isinstance(text, str):
+            raise ValueError(f"{field_name} must be a string")
+        if not text.strip():
+            raise ValueError(f"{field_name} cannot be empty")
+        if len(text) > 200:  # Reasonable length limit
+            raise ValueError(f"{field_name} is too long (max 200 characters)")
+        if not re.match(r'^[\w\s\-.,!?()]+$', text):
+            raise ValueError(f"{field_name} contains invalid characters")
+
+    def _validate_task_id(self, task_id: int) -> None:
+        """
+        Validate task ID.
+        
+        Args:
+            task_id: ID to validate
+            
+        Raises:
+            ValueError: If ID is invalid
+        """
+        if not isinstance(task_id, int):
+            raise ValueError("Task ID must be an integer")
+        if task_id <= 0:
+            raise ValueError("Task ID must be positive")
+        if task_id not in self._tasks:
+            raise ValueError("Task ID does not exist")
 
     def add(self, task_name: str, task_description: str) -> int:
         """
-        Adds a task and returns its unique ID.
-        :param task_name: The name of the task.
-        :param task_description: The description of the task.
-        :return: The unique ID of the added task.
+        Add a new task to the manager.
+        
+        Args:
+            task_name: Name of the task
+            task_description: Description of the task
+            
+        Returns:
+            int: Unique ID of the created task
+            
+        Raises:
+            ValueError: If inputs are invalid
         """
-        if not task_name or not task_description:
-            raise ValueError("Task name and description cannot be empty.")
+        self._validate_string_input(task_name, "Task name")
+        self._validate_string_input(task_description, "Task description")
 
-        task_id = self.next_id
-        self.tasks.append(Task(task_id, task_name, task_description))
-        self.next_id += 1
+        task_id = self._next_id
+        self._tasks[task_id] = {
+            'id': task_id,
+            'name': task_name.strip(),
+            'description': task_description.strip(),
+            'is_finished': False,
+            'created_at': datetime.now()
+        }
+        self._next_id += 1
         return task_id
 
     def remove(self, task_id: int) -> bool:
         """
-        Removes a task by ID and returns success status.
-        :param task_id: The ID of the task to remove.
-        :return: True if the task was successfully removed, False otherwise.
+        Remove a task by its ID.
+        
+        Args:
+            task_id: ID of the task to remove
+            
+        Returns:
+            bool: True if task was removed, False otherwise
+            
+        Raises:
+            ValueError: If task_id is invalid
         """
-        for task in self.tasks:
-            if task.task_id == task_id:
-                self.tasks.remove(task)
-                return True
-        return False
+        self._validate_task_id(task_id)
+        del self._tasks[task_id]
+        return True
 
-    def search(self, task_term: str) -> list[dict]:
+    def search(self, task_term: str) -> List[dict]:
         """
-        Searches tasks by name or description and returns matching results.
-        :param task_term: The search term to match against task names or descriptions.
-        :return: A list of matching tasks as dictionaries.
+        Search tasks by name or description.
+        
+        Args:
+            task_term: Search term
+            
+        Returns:
+            List[dict]: List of matching tasks
+            
+        Raises:
+            ValueError: If search term is invalid
         """
-        if not task_term:
-            raise ValueError("Search term cannot be empty.")
-
-        matching_tasks = []
-        for task in self.tasks:
-            if task_term.lower() in task.task_name.lower() or task_term.lower() in task.task_description.lower():
-                matching_tasks.append(task.to_dict())
-        return matching_tasks
+        self._validate_string_input(task_term, "Search term")
+        term = task_term.lower().strip()
+        
+        return [
+            self._format_task(task) for task in self._tasks.values()
+            if term in task['name'].lower() or term in task['description'].lower()
+        ]
 
     def finish(self, task_id: int) -> bool:
         """
-        Marks a task as completed.
-        :param task_id: The ID of the task to mark as completed.
-        :return: True if the task was successfully marked as completed, False otherwise.
+        Mark a task as completed.
+        
+        Args:
+            task_id: ID of the task to mark as completed
+            
+        Returns:
+            bool: True if task was marked as completed
+            
+        Raises:
+            ValueError: If task_id is invalid
         """
-        for task in self.tasks:
-            if task.task_id == task_id:
-                task.is_finished = True
-                return True
-        return False
+        self._validate_task_id(task_id)
+        if self._tasks[task_id]['is_finished']:
+            return False
+        self._tasks[task_id]['is_finished'] = True
+        return True
 
-    def get_all(self) -> list[dict]:
+    def get_all(self) -> List[dict]:
         """
-        Retrieves all tasks with their details.
-        :return: A list of all tasks as dictionaries.
+        Get all tasks.
+        
+        Returns:
+            List[dict]: List of all tasks
         """
-        return [task.to_dict() for task in self.tasks]
+        return [self._format_task(task) for task in self._tasks.values()]
 
     def clear_all(self) -> bool:
         """
-        Deletes all tasks and returns success status.
-        :return: True if all tasks were successfully deleted, False otherwise.
+        Remove all tasks.
+        
+        Returns:
+            bool: True if all tasks were removed
         """
-        self.tasks.clear()
-        self.next_id = 1
+        self._tasks.clear()
         return True
+
+    def _format_task(self, task: dict) -> dict:
+        """
+        Format a task for output.
+        
+        Args:
+            task: Task dictionary
+            
+        Returns:
+            dict: Formatted task dictionary
+        """
+        return {
+            'id': task['id'],
+            'task_name': task['name'],
+            'task_description': task['description'],
+            'is_finished': task['is_finished']
+        }
+
+
+# Usage example
+task_manager = TaskManager()
+
+# Add tasks
+task1_id = task_manager.add("Complete report", "Finish quarterly report")
+task2_id = task_manager.add("Email client", "Send project updates")
+
+# Get all tasks
+all_tasks = task_manager.get_all()
+
+# Search tasks
+results = task_manager.search("report")
+
+# Mark task as complete
+task_manager.finish(task1_id)
+
+# Remove task
+task_manager.remove(task2_id)
+
+# Clear all tasks
+task_manager.clear_all()
