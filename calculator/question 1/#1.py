@@ -1,191 +1,178 @@
-
+#!/usr/bin/env python3
 """
 Console-Based Arithmetic Calculator
 
-This module implements a calculator that evaluates arithmetic expressions
-with addition (+), subtraction (-), multiplication (*), and division (/).
-It supports floating-point and integer numbers (including negative numbers)
-and handles parentheses with correct operator precedence.
+This calculator evaluates arithmetic expressions supporting addition (+),
+subtraction (-), multiplication (*), division (/), parentheses grouping, proper
+operator precedence, and both integer and floating-point numbers (including negatives).
 
-The design meets the requirements in ISO/IEC 25010:
-- Correctness: Uses recursive descent parsing for correct operator precedence.
-- Performance: Efficient single-pass tokenization and recursive descent evaluation.
-- Modularity: Code is structured into clearly separated methods.
-- Security: Avoids use of eval() and validates input for invalid characters,
-  unbalanced parentheses, and division by zero.
-- Testability: The Calculator class and its calculate() method facilitate unit testing.
-- Readability & Documentation: Clear variable names, inline comments, and docstrings.
-
-Usage:
-    calc = Calculator()
-    result = calc.calculate("3 + 4 * (2 - 1) / 5")
-    print(result)
-    
-Run this module to start a console-based interactive calculator.
+It validates input for errors such as invalid characters, unbalanced parentheses, and division by zero.
+The main interface is the calculate(expression: str) -> float method of the Calculator class.
 """
 
+class CalculatorError(Exception):
+    """
+    Exception class for errors encountered in the Calculator.
+    """
+    pass
+
 class Calculator:
+    """
+    A simple arithmetic calculator that supports +, -, *, /, and parenthesized expressions.
+    
+    The calculator uses a recursive descent parser to ensure correct operator precedence and 
+    validation of the input expression.
+    """
+    
     def calculate(self, expression: str) -> float:
         """
-        Evaluate an arithmetic expression and return its result as a float.
+        Evaluate an arithmetic expression provided as a string.
         
-        The expression may contain integers, floating-point numbers, parentheses,
-        and the operators +, -, *, /.
-        
-        Parameters:
-            expression (str): The arithmetic expression to evaluate.
-            
-        Returns:
-            float: The result of the evaluated expression.
-            
-        Raises:
-            ValueError: If the expression contains invalid syntax or characters.
-            ZeroDivisionError: If a division by zero is encountered.
+        :param expression: A string representing the arithmetic expression.
+        :return: The result of the evaluated expression as a float.
+        :raises CalculatorError: If the expression contains invalid syntax or operations (e.g., division by zero).
         """
-        # Tokenize the string input
         self.tokens = self._tokenize(expression)
-        self.index = 0  # Initialize the token pointer
-        
-        # Parse the tokens using a recursive descent parser
+        self.pos = 0
         result = self._parse_expression()
-        
-        # Ensure all tokens were consumed; otherwise, the input was invalid.
-        if self.index < len(self.tokens):
-            raise ValueError(f"Unexpected token '{self.tokens[self.index]}' at position {self.index}.")
+        if self.pos < len(self.tokens):
+            raise CalculatorError(f"Unexpected token '{self.tokens[self.pos]}' at position {self.pos}.")
         return result
 
-    def _tokenize(self, expression: str):
+    def _tokenize(self, expression: str) -> list:
         """
-        Convert the input string into a list of tokens.
+        Convert the input expression into a list of tokens.
         
-        Tokens may be floats (for numbers) or strings (for operators and parentheses).
+        Numbers are converted to float, while operators and parentheses remain as strings.
         
-        Parameters:
-            expression (str): The input arithmetic expression.
-        
-        Returns:
-            list: A list of tokens.
-            
-        Raises:
-            ValueError: If an invalid character is encountered.
+        :param expression: The arithmetic expression string.
+        :return: List of tokens.
+        :raises CalculatorError: If an invalid character is encountered or number formatting is invalid.
         """
         tokens = []
-        i = 0
-        while i < len(expression):
-            char = expression[i]
+        index = 0
+        while index < len(expression):
+            char = expression[index]
+            # Skip any whitespace characters.
             if char.isspace():
-                i += 1
+                index += 1
                 continue
-            elif char.isdigit() or char == '.':
-                # Parse a number (integer or floating-point)
-                num_str = char
-                dot_count = 1 if char == '.' else 0
-                i += 1
-                while i < len(expression) and (expression[i].isdigit() or expression[i] == '.'):
-                    if expression[i] == '.':
+            # Process numbers (integer and floating-point).
+            if char.isdigit() or char == '.':
+                num_str = ''
+                dot_count = 0
+                while index < len(expression) and (expression[index].isdigit() or expression[index] == '.'):
+                    if expression[index] == '.':
                         dot_count += 1
                         if dot_count > 1:
-                            raise ValueError("Invalid number format: multiple decimal points.")
-                    num_str += expression[i]
-                    i += 1
+                            raise CalculatorError("Invalid number format: multiple decimals in a number.")
+                    num_str += expression[index]
+                    index += 1
                 try:
                     number = float(num_str)
                 except ValueError:
-                    raise ValueError(f"Invalid number format: {num_str}")
+                    raise CalculatorError(f"Invalid number format: '{num_str}'")
                 tokens.append(number)
-            elif char in '+-*/()':
+                continue
+            # Process valid operators and parentheses.
+            if char in '+-*/()':
                 tokens.append(char)
-                i += 1
-            else:
-                raise ValueError(f"Invalid character encountered: {char}")
+                index += 1
+                continue
+            # Any other character is considered invalid.
+            raise CalculatorError(f"Invalid character encountered: '{char}'")
         return tokens
 
     def _parse_expression(self) -> float:
         """
-        Parse and evaluate an expression with addition and subtraction.
+        Parse and evaluate an expression which may consist of terms combined by '+' and '-'.
         
-        Returns:
-            float: The evaluated result of the expression.
+        :return: The numerical result of the expression.
         """
-        result = self._parse_term()
-        while self.index < len(self.tokens) and self.tokens[self.index] in ('+', '-'):
-            op = self.tokens[self.index]
-            self.index += 1
-            term = self._parse_term()
+        value = self._parse_term()
+        while self.pos < len(self.tokens) and self.tokens[self.pos] in ('+', '-'):
+            op = self.tokens[self.pos]
+            self.pos += 1
+            right = self._parse_term()
             if op == '+':
-                result += term
-            else:
-                result -= term
-        return result
+                value += right
+            elif op == '-':
+                value -= right
+        return value
 
     def _parse_term(self) -> float:
         """
-        Parse and evaluate a term with multiplication and division.
+        Parse and evaluate a term, handling multiplication and division.
         
-        Returns:
-            float: The evaluated result of the term.
+        :return: The numerical result of the term.
+        :raises CalculatorError: If a division by zero is attempted.
         """
-        result = self._parse_factor()
-        while self.index < len(self.tokens) and self.tokens[self.index] in ('*', '/'):
-            op = self.tokens[self.index]
-            self.index += 1
-            factor = self._parse_factor()
+        value = self._parse_factor()
+        while self.pos < len(self.tokens) and self.tokens[self.pos] in ('*', '/'):
+            op = self.tokens[self.pos]
+            self.pos += 1
+            right = self._parse_factor()
             if op == '*':
-                result *= factor
-            else:
-                if factor == 0:
-                    raise ZeroDivisionError("Division by zero is not allowed.")
-                result /= factor
-        return result
+                value *= right
+            elif op == '/':
+                if right == 0:
+                    raise CalculatorError("Division by zero is not allowed.")
+                value /= right
+        return value
 
     def _parse_factor(self) -> float:
         """
-        Parse and evaluate a factor, which may be a number, a parenthesized expression,
-        or a number preceded by a unary plus or minus.
-        
-        Returns:
-            float: The evaluated result of the factor.
-        """
-        # Handle unary operators (plus or minus)
-        if self.index < len(self.tokens) and self.tokens[self.index] in ('+', '-'):
-            op = self.tokens[self.index]
-            self.index += 1
-            factor = self._parse_factor()
-            return -factor if op == '-' else factor
+        Parse and evaluate a factor which can be a number, a parenthesized expression,
+        or an expression preceded by a unary '+' or '-'.
 
-        # Evaluate numbers and parentheses
-        if self.index >= len(self.tokens):
-            raise ValueError("Unexpected end of expression.")
-        
-        token = self.tokens[self.index]
+        :return: The numerical result of the factor.
+        :raises CalculatorError: If the expression syntax is invalid (e.g., missing closing parenthesis).
+        """
+        if self.pos >= len(self.tokens):
+            raise CalculatorError("Unexpected end of expression.")
+
+        token = self.tokens[self.pos]
+
+        # Handle unary minus (and unary plus).
+        if token == '-':
+            self.pos += 1
+            return -self._parse_factor()
+        if token == '+':
+            self.pos += 1
+            return self._parse_factor()
+
+        # Handle parenthesized expressions.
+        if token == '(':
+            self.pos += 1
+            value = self._parse_expression()
+            if self.pos >= len(self.tokens) or self.tokens[self.pos] != ')':
+                raise CalculatorError("Unbalanced parentheses: missing ')'.")
+            self.pos += 1
+            return value
+
+        # Handle numeric tokens.
         if isinstance(token, float):
-            self.index += 1
+            self.pos += 1
             return token
-        elif token == '(':
-            self.index += 1  # Consume '('
-            result = self._parse_expression()
-            if self.index >= len(self.tokens) or self.tokens[self.index] != ')':
-                raise ValueError("Mismatched parentheses: ')' expected.")
-            self.index += 1  # Consume ')'
-            return result
-        else:
-            raise ValueError(f"Unexpected token '{token}' encountered.")
+
+        # If none of the above, the token is unexpected.
+        raise CalculatorError(f"Unexpected token: {token}")
 
 if __name__ == '__main__':
-    # Instantiate the Calculator
-    calc = Calculator()
+    # Create a Calculator instance.
+    calculator = Calculator()
     print("Console-Based Arithmetic Calculator")
-    print("Type 'exit' to quit.")
-
+    print("Enter an arithmetic expression (or type 'exit' to quit):\n")
+    
     while True:
         try:
-            user_input = input("Enter expression: ").strip()
-            if user_input.lower() == 'exit':
-                print("Exiting the calculator. Goodbye!")
+            user_input = input("Enter expression: ")
+            if user_input.strip().lower() == 'exit':
+                print("Goodbye!")
                 break
-            if not user_input:
-                continue  # Skip empty input
-            result = calc.calculate(user_input)
+            result = calculator.calculate(user_input)
             print("Result:", result)
-        except Exception as e:
-            print("Error:", e)
+        except CalculatorError as error:
+            print("Error:", error)
+        except Exception as error:
+            print("Unexpected Error:", error)

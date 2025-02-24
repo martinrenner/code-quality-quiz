@@ -1,55 +1,67 @@
-
-import re
-from typing import List, Union
+import re  # Importing the regular expression module
 
 class Calculator:
     """
-    A calculator class that evaluates arithmetic expressions following the order of operations.
-    Supports addition, subtraction, multiplication, division, and parentheses.
+    A console-based arithmetic calculator that supports basic operations,
+    parentheses, and error handling.
     """
 
     def calculate(self, expression: str) -> float:
         """
-        Evaluates the given mathematical expression.
+        Evaluates a mathematical expression.
 
-        :param expression: A string representing the mathematical expression.
-        :return: The result of the expression as a float.
-        :raises ValueError: If the expression is invalid or contains invalid operations.
-        """
-        # Normalize the expression
-        normalized_expr = self._normalize_expression(expression)
-        
-        # Validate the expression
-        if not self._is_valid_expression(normalized_expr):
-            raise ValueError("Invalid expression")
+        Args:
+            expression (str): The mathematical expression to evaluate.
 
-        # Evaluate the expression
-        result = self._evaluate_expression(normalized_expr)
-        
-        return result
-    
-    def _normalize_expression(self, expression: str) -> str:
-        """
-        Normalizes the input expression by removing spaces and validating characters.
+        Returns:
+            float: The result of the expression.
 
-        :param expression: The input expression as a string.
-        :return: The normalized expression.
-        :raises ValueError: If the expression contains invalid characters.
+        Raises:
+            ValueError: If the expression is invalid, contains unbalanced
+                        parentheses, or involves division by zero.
         """
-        allowed_chars = set("0123456789+-*/(). ")
+        try:
+            normalized_expression = self.normalize_expression(expression)
+            if not self.is_balanced(normalized_expression):
+                raise ValueError("Unbalanced parentheses.")
+            tokens = self.tokenize(normalized_expression)
+            postfix_tokens = self.shunting_yard(tokens)
+            result = self.evaluate_postfix(postfix_tokens)
+            return result
+        except ValueError as e:
+            raise ValueError(f"Error evaluating expression: {e}")
+
+    def normalize_expression(self, expression: str) -> str:
+        """
+        Normalizes a mathematical expression by removing spaces and validating
+        characters.
+
+        Args:
+            expression (str): A mathematical expression as a string.
+
+        Returns:
+            str: The normalized expression without spaces.
+
+        Raises:
+            ValueError: If the expression contains invalid characters.
+        """
+        allowed_chars = set("0123456789+-*/().")
         if not all(char in allowed_chars for char in expression):
             raise ValueError("Expression contains invalid characters.")
-        
+
         return expression.replace(" ", "")
 
-    def _is_valid_expression(self, expression: str) -> bool:
+    def is_balanced(self, expression: str) -> bool:
         """
-        Validates the expression for proper structure and balanced parentheses.
+        Checks whether a mathematical expression has properly paired
+        parentheses.
 
-        :param expression: The normalized expression to validate.
-        :return: True if the expression is valid, False otherwise.
+        Args:
+            expression (str): A string containing the mathematical expression.
+
+        Returns:
+            bool: True if parentheses are correctly paired, otherwise False.
         """
-        # Check for balanced parentheses
         stack = []
         for char in expression:
             if char == '(':
@@ -58,68 +70,184 @@ class Calculator:
                 if not stack:
                     return False
                 stack.pop()
-        if stack:
-            return False
+        return not stack  # Stack should be empty if balanced
 
-        # Check for consecutive operators
-        if re.search(r'[+\-*/]{2,}', expression):
-            return False
-
-        # Check for division by zero
-        if re.search(r'/0(\D|$)', expression):
-            return False
-
-        # Check for proper structure
-        if not re.match(r'^(\d+|\((\d+|\((\d+|\(\d+\))*\))*\))((\+|\-|*|/)(\d+|\((\d+|\((\d+|\(\d+\))*\))*\)))*$', expression):
-            return False
-
-        return True
-
-    def _evaluate_expression(self, expression: str) -> float:
+    def tokenize(self, expression: str) -> list:
         """
-        Evaluates the normalized and validated expression.
+        Tokenizes a mathematical expression into a list of numbers, operators,
+        and parentheses.  Handles multi-digit numbers and decimal points.
 
-        :param expression: The normalized and validated expression.
-        :return: The result of the expression as a float.
+        Args:
+            expression (str): The normalized mathematical expression.
+
+        Returns:
+            list: A list of tokens.
         """
-        # Handle parentheses first
-        while '(' in expression:
-            expression = re.sub(r'\(([^()]+)\)', lambda m: str(self._evaluate_expression(m.group(1))), expression)
+        # Use regular expression to split the expression into tokens
+        return re.findall(r"(\d+\.?\d*|\.\d+|[+\-*/()]|\d+)", expression)
 
-        # Evaluate multiplication and division
-        while '*' in expression or '/' in expression:
-            expression = re.sub(r'(-?\d+(?:\.\d+)?)([*/])(-?\d+(?:\.\d+)?)', 
-                                lambda m: str(self._apply_operation(float(m.group(1)), m.group(2), float(m.group(3)))), 
-                                expression)
-
-        # Evaluate addition and subtraction
-        result = float(re.split(r'([+\-])', expression)[0])
-        for i in range(1, len(re.split(r'([+\-])', expression)) - 1, 2):
-            operation = re.split(r'([+\-])', expression)[i]
-            number = float(re.split(r'([+\-])', expression)[i + 1])
-            result = self._apply_operation(result, operation, number)
-
-        return result
-
-    def _apply_operation(self, a: float, operator: str, b: float) -> float:
+    def precedence(self, operator: str) -> int:
         """
-        Applies the specified operation to two numbers.
+        Returns the precedence of a given operator.
 
-        :param a: The first number.
-        :param b: The second number.
-        :param operator: The operation to apply ('+', '-', '*', or '/').
-        :return: The result of the operation.
-        :raises ValueError: If an invalid operator is provided or division by zero is attempted.
+        Args:
+            operator (str): The operator (+, -, *, /).
+
+        Returns:
+            int: The precedence of the operator (higher value means higher
+                 precedence).
         """
+        if operator in ('+', '-'):
+            return 1
+        elif operator in ('*', '/'):
+            return 2
+        return 0  # For parentheses
+
+    def apply_op(self, operators: list, values: list) -> None:
+        """Applies operator to values
+
+        Args:
+            operators (list): operators stack.
+            values (list): values stack.
+
+        Raises:
+            ValueError: If there are not enough operands or division by zero
+        """
+        operator = operators.pop()
+        right = values.pop()
+        left = values.pop()
         if operator == '+':
-            return a + b
+            values.append(left + right)
         elif operator == '-':
-            return a - b
+            values.append(left - right)
         elif operator == '*':
-            return a * b
+            values.append(left * right)
         elif operator == '/':
-            if b == 0:
-                raise ValueError("Division by zero")
-            return a / b
+            if right == 0:
+                raise ValueError("Division by zero.")
+            values.append(left / right)
         else:
-            raise ValueError(f"Invalid operator: {operator}")
+            raise ValueError(f"Unknown operator {operator}")
+
+    def shunting_yard(self, tokens: list) -> list:
+        """Convert infix notation to postfix notation (Reverse Polish Notation)
+
+        Args:
+            tokens (list): List of tokens in infix notation
+
+        Returns:
+            list: list of tokens in postfix notation
+        """
+        output = []
+        operators = []
+        for token in tokens:
+            if re.match(r"(\d+\.?\d*|\.\d+)", token):  # If it's a number
+                output.append(float(token))  # Convert to float immediately
+            elif token in ('+', '-', '*', '/'):
+                # Handle precedence and associativity
+                while (operators and operators[-1] != '(' and
+                       self.precedence(operators[-1]) >= self.precedence(token)):
+                    output.append(operators.pop())
+                operators.append(token)
+
+            elif token == '(':
+                operators.append(token)
+            elif token == ')':
+                while operators and operators[-1] != '(':
+                    output.append(operators.pop())
+                if not operators:
+                    raise ValueError("Mismatched parentheses")
+                operators.pop()  # Pop the '('
+            else:
+                raise ValueError(f"Invalid token: {token}")  # Shouldn't happen
+
+        while operators:
+            if operators[-1] =='(':
+                raise ValueError("Mismatched parentheses")
+            output.append(operators.pop())
+        return output
+
+    def evaluate_postfix(self, postfix_tokens: list) -> float:
+        """Evaluates a postfix expression
+
+        Args:
+            postfix_tokens (list): List of tokens in postfix notation
+
+        Returns:
+            float: Result of evaluation
+
+        Raises:
+            ValueError: If invalid expression. For example: 2 2 + -
+        """
+        values = []
+        for token in postfix_tokens:
+            if isinstance(token, float):
+                values.append(token)
+            else:
+                self.apply_op(['',token], values)
+
+        if len(values) != 1:
+            raise ValueError("Invalid expression")
+        return values[0]
+
+# Example Usage and Testing
+if __name__ == "__main__":
+    calculator = Calculator()
+
+    test_cases = [
+        ("1 + 2", 3.0),
+        ("1+2*3", 7.0),
+        ("(1 + 2) * 3", 9.0),
+        ("10 - 5 * 2", 0.0),
+        ("10 / 2 - 3", 2.0),
+        ("10.5 + 2.5", 13.0),
+        ("-5 + 10", 5.0),
+        ("2 * (3 + 4) / (1 + 1)", 7.0),
+        ("1 + 2 * (3 - 1) / 2", 3.0),
+        ("2*(10 - 2*(2 + 1))", 8.0),
+        ("1.2*2.4", 2.88)
+
+    ]
+    failed_cases = 0
+    for expression, expected in test_cases:
+        try:
+            result = calculator.calculate(expression)
+            print(f"'{expression}' = {result}")
+            if abs(result - expected) > 1e-9:  # Floating-point comparison
+                print(f"  ERROR: Expected {expected}, got {result}")
+                failed_cases +=1
+        except ValueError as e:
+            print(f"'{expression}' - ERROR: {e}")
+            failed_cases += 1
+
+
+    error_cases = [
+        ("1 / 0", "Division by zero."),
+        ("1 + (2 * 3", "Unbalanced parentheses."),
+        ("(1 + 2) * 3)", "Mismatched parentheses"), # Testing closing parenthesis error
+        ("1 & 2", "Expression contains invalid characters."),
+        ("2 2 + -", "Invalid expression") # Testing incorrect postfix
+    ]
+    for expression, expected_error in error_cases:
+        try:
+            result = calculator.calculate(expression)
+            print(f"'{expression}' = {result}  (Should have raised an error)")
+            failed_cases += 1
+        except ValueError as e:
+            print(f"'{expression}' - ERROR (as expected): {e}")
+            if str(e).find(expected_error) ==-1:
+                print(f"  ERROR Message test failed.  Expected message {expected_error}, got {e}")
+                failed_cases += 1
+    print(f"Tests completed. Failed cases count: {failed_cases}")
+
+
+    while True:
+        try:
+            user_input = input("Enter a mathematical expression (or 'quit'): ")
+            if user_input.lower() == 'quit':
+                break
+            result = calculator.calculate(user_input)
+            print(f"Result: {result}")
+        except ValueError as e:
+            print(f"Error: {e}")
+

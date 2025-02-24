@@ -1,151 +1,124 @@
+import re
+from typing import List, Union
+
+class ExpressionError(Exception):
+    """Custom exception for expression-related errors."""
+    pass
+
+class Token:
+    """Represents a token in the mathematical expression."""
+
+    def __init__(self, type: str, value: Union[str, float]):
+        self.type = type
+        self.value = value
 
 class Calculator:
+    """
+    A class that implements a calculator to evaluate arithmetic expressions.
+    
+    Supports addition (+), subtraction (-), multiplication (*), and division (/)
+    as well as correct operator precedence and parentheses.
+    """
+
     def __init__(self):
-        self.operators = {'+', '-', '*', '/'}
+        self.operators = {
+            '+': lambda a, b: a + b,
+            '-': lambda a, b: a - b,
+            '*': lambda a, b: a * b,
+            '/': lambda a, b: a / b if b != 0 else float('inf')
+        }
         self.precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
 
     def calculate(self, expression: str) -> float:
         """
-        Evaluates the arithmetic expression.
+        Evaluates the mathematical expression and returns the result.
 
-        Args:
-            expression (str): The arithmetic expression to evaluate.
-
-        Returns:
-            float: The result of the arithmetic expression.
-
-        Raises:
-            ValueError: If the expression contains invalid characters or unbalanced parentheses.
-            ZeroDivisionError: If division by zero is attempted.
+        :param expression: The mathematical expression as a string
+        :return: Result of the expression as a float
+        :raises ExpressionError: If the expression is invalid
         """
-        # Validate the expression
-        self.validate_expression(expression)
+        try:
+            # Tokenize the expression
+            tokens = self._tokenize(expression)
+            # Convert to postfix notation
+            postfix = self._infix_to_postfix(tokens)
+            # Evaluate the postfix expression
+            result = self._evaluate_postfix(postfix)
+            return result
+        except ExpressionError as e:
+            raise ExpressionError(f"Error in expression: {e}")
 
-        # Convert the expression to a list of tokens
-        tokens = self.tokenize(expression)
-
-        # Convert the tokens to Reverse Polish Notation (RPN)
-        rpn = self.to_rpn(tokens)
-
-        # Evaluate the RPN expression
-        return self.evaluate_rpn(rpn)
-
-    def validate_expression(self, expression: str):
-        """
-        Validates the arithmetic expression for invalid characters and unbalanced parentheses.
-
-        Args:
-            expression (str): The arithmetic expression to validate.
-
-        Raises:
-            ValueError: If the expression contains invalid characters or unbalanced parentheses.
-        """
-        stack = []
-        for char in expression:
-            if char == '(':
-                stack.append(char)
-            elif char == ')':
-                if not stack:
-                    raise ValueError("Unbalanced parentheses")
-                stack.pop()
-            elif not (char.isdigit() or char in self.operators or char in {' ', '.', '-'}):
-                raise ValueError(f"Invalid character: {char}")
-        if stack:
-            raise ValueError("Unbalanced parentheses")
-
-    def tokenize(self, expression: str) -> list:
-        """
-        Tokenizes the arithmetic expression.
-
-        Args:
-            expression (str): The arithmetic expression to tokenize.
-
-        Returns:
-            list: A list of tokens.
-        """
+    def _tokenize(self, expression: str) -> List[Token]:
+        """Tokenizes the input expression into a list of tokens."""
         tokens = []
-        current_number = []
-        for char in expression:
+        number = ''
+        for char in expression.replace(' ', ''):
             if char.isdigit() or char == '.':
-                current_number.append(char)
+                number += char
             else:
-                if current_number:
-                    tokens.append(float(''.join(current_number)))
-                    current_number = []
-                if char in self.operators or char in {'(', ')'}:
-                    tokens.append(char)
-        if current_number:
-            tokens.append(float(''.join(current_number)))
+                if number:
+                    tokens.append(Token('number', float(number)))
+                    number = ''
+                if char in self.operators or char in '()':
+                    tokens.append(Token('operator', char))
+                else:
+                    raise ExpressionError(f"Invalid character: {char}")
+        if number:
+            tokens.append(Token('number', float(number)))
+        return self._validate_tokens(tokens)
+
+    def _validate_tokens(self, tokens: List[Token]) -> List[Token]:
+        """Validates the tokens, ensuring balanced parentheses and no invalid sequences."""
+        stack = []
+        for token in tokens:
+            if token.type == 'operator' and token.value == '(':
+                stack.append(token)
+            elif token.type == 'operator' and token.value == ')':
+                if not stack or stack[-1].value != '(':
+                    raise ExpressionError("Unbalanced parentheses")
+                stack.pop()
+        if stack:
+            raise ExpressionError("Unbalanced parentheses")
         return tokens
 
-    def to_rpn(self, tokens: list) -> list:
-        """
-        Converts the list of tokens to Reverse Polish Notation (RPN).
-
-        Args:
-            tokens (list): The list of tokens to convert.
-
-        Returns:
-            list: The RPN representation of the tokens.
-        """
-        stack = []
+    def _infix_to_postfix(self, tokens: List[Token]) -> List[Token]:
+        """Converts infix notation to postfix notation using the Shunting Yard algorithm."""
         output = []
+        operator_stack = []
         for token in tokens:
-            if isinstance(token, float):
+            if token.type == 'number':
                 output.append(token)
-            elif token == '(':
-                stack.append(token)
-            elif token == ')':
-                while stack and stack[-1] != '(':
-                    output.append(stack.pop())
-                stack.pop()
-            else:
-                while (stack and stack[-1] in self.operators and
-                       self.precedence[stack[-1]] >= self.precedence[token]):
-                    output.append(stack.pop())
-                stack.append(token)
-        while stack:
-            output.append(stack.pop())
+            elif token.type == 'operator':
+                if token.value == '(':
+                    operator_stack.append(token)
+                elif token.value == ')':
+                    while operator_stack and operator_stack[-1].value != '(':
+                        output.append(operator_stack.pop())
+                    if operator_stack and operator_stack[-1].value == '(':
+                        operator_stack.pop()
+                    else:
+                        raise ExpressionError("Unbalanced parentheses")
+                else:
+                    while (operator_stack and operator_stack[-1].value != '(' and
+                           self.precedence[operator_stack[-1].value] >= self.precedence[token.value]):
+                        output.append(operator_stack.pop())
+                    operator_stack.append(token)
+        while operator_stack:
+            output.append(operator_stack.pop())
         return output
 
-    def evaluate_rpn(self, rpn: list) -> float:
-        """
-        Evaluates the Reverse Polish Notation (RPN) expression.
-
-        Args:
-            rpn (list): The RPN expression to evaluate.
-
-        Returns:
-            float: The result of the RPN expression.
-
-        Raises:
-            ZeroDivisionError: If division by zero is attempted.
-        """
+    def _evaluate_postfix(self, postfix: List[Token]) -> float:
+        """Evaluates a postfix expression."""
         stack = []
-        for token in rpn:
-            if isinstance(token, float):
-                stack.append(token)
-            else:
-                b = stack.pop()
-                a = stack.pop()
-                if token == '+':
-                    stack.append(a + b)
-                elif token == '-':
-                    stack.append(a - b)
-                elif token == '*':
-                    stack.append(a * b)
-                elif token == '/':
-                    if b == 0:
-                        raise ZeroDivisionError("Division by zero")
-                    stack.append(a / b)
+        for token in postfix:
+            if token.type == 'number':
+                stack.append(token.value)
+            elif token.type == 'operator':
+                if len(stack) < 2:
+                    raise ExpressionError("Invalid expression")
+                b, a = stack.pop(), stack.pop()
+                result = self.operators[token.value](a, b)
+                stack.append(result)
+        if len(stack) != 1:
+            raise ExpressionError("Invalid expression")
         return stack[0]
-
-# Example usage
-if __name__ == "__main__":
-    calculator = Calculator()
-    expression = "3 + 5 * (2 - 8)"
-    try:
-        result = calculator.calculate(expression)
-        print(f"Result: {result}")
-    except (ValueError, ZeroDivisionError) as e:
-        print(f"Error: {e}")

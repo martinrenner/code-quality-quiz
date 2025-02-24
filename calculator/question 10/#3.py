@@ -1,139 +1,131 @@
-
 import re
+from typing import List, Union
 
 class Calculator:
+    """
+    A class implementing a simple arithmetic calculator.
+    Supports addition, subtraction, multiplication, division, and parentheses.
+    """
+
     def __init__(self):
-        self.operators = {'+': (1, lambda x, y: x + y),
-                          '-': (1, lambda x, y: x - y),
-                          '*': (2, lambda x, y: x * y),
-                          '/': (2, lambda x, y: x / y)}
+        """Initialize the Calculator with precedence rules and token patterns."""
+        self.precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
+        self.token_pattern = re.compile(r'\s*([()+\-*/]|\d*\.?\d+)\s*')
 
     def calculate(self, expression: str) -> float:
         """
-        Evaluates the given arithmetic expression.
+        Calculate the result of the given arithmetic expression.
 
         Args:
             expression (str): The arithmetic expression to evaluate.
 
         Returns:
+            float: The result of the expression.
+
+        Raises:
+            ValueError: If the expression is invalid (e.g., unbalanced parentheses, invalid characters, division by zero).
+        """
+        tokens = self.tokenize(expression)
+        postfix = self.infix_to_postfix(tokens)
+        return self.evaluate_postfix(postfix)
+
+    def tokenize(self, expression: str) -> List[str]:
+        """
+        Tokenize the input expression into a list of tokens.
+
+        Args:
+            expression (str): The input expression to tokenize.
+
+        Returns:
+            List[str]: List of tokens.
+
+        Raises:
+            ValueError: If the expression contains invalid characters.
+        """
+        tokens = []
+        for match in self.token_pattern.finditer(expression):
+            token = match.group(1)
+            if token in '+-*/()' or token.replace('.', '').isdigit():
+                tokens.append(token)
+            else:
+                raise ValueError(f"Invalid character in expression: {token}")
+        return tokens
+
+    def infix_to_postfix(self, tokens: List[str]) -> List[str]:
+        """
+        Convert infix notation to postfix notation using the Shunting Yard algorithm.
+
+        Args:
+            tokens (List[str]): List of tokens in infix notation.
+
+        Returns:
+            List[str]: List of tokens in postfix notation.
+
+        Raises:
+            ValueError: If the expression has unbalanced parentheses.
+        """
+        output = []
+        operators = []
+        for token in tokens:
+            if token.replace('.', '').isdigit():
+                output.append(token)
+            elif token == '(':
+                operators.append(token)
+            elif token == ')':
+                while operators and operators[-1] != '(':
+                    output.append(operators.pop())
+                if not operators or operators.pop() != '(':
+                    raise ValueError("Unbalanced parentheses in expression")
+            elif token in self.precedence:
+                while (operators and operators[-1] != '(' and
+                       self.precedence.get(operators[-1], 0) >= self.precedence[token]):
+                    output.append(operators.pop())
+                operators.append(token)
+        
+        while operators:
+            if operators[-1] == '(':
+                raise ValueError("Unbalanced parentheses in expression")
+            output.append(operators.pop())
+        
+        return output
+
+    def evaluate_postfix(self, postfix: List[str]) -> float:
+        """
+        Evaluate a postfix expression.
+
+        Args:
+            postfix (List[str]): List of tokens in postfix notation.
+
+        Returns:
             float: The result of the evaluation.
 
         Raises:
-            ValueError: If the expression contains invalid inputs.
-        """
-        # Validate the expression
-        if not self._is_valid_expression(expression):
-            raise ValueError("Invalid expression.")
-
-        # Tokenize the expression
-        tokens = self._tokenize(expression)
-
-        # Convert tokens to Reverse Polish Notation (RPN)
-        rpn = self._to_rpn(tokens)
-
-        # Evaluate the RPN expression
-        return self._evaluate_rpn(rpn)
-
-    def _is_valid_expression(self, expression: str) -> bool:
-        """
-        Validates the arithmetic expression.
-
-        Args:
-            expression (str): The arithmetic expression to validate.
-
-        Returns:
-            bool: True if the expression is valid, False otherwise.
-        """
-        # Check for unbalanced parentheses
-        if expression.count('(') != expression.count(')'):
-            return False
-
-        # Check for invalid characters
-        if re.search(r'[^0-9+\-*/(). ]', expression):
-            return False
-
-        return True
-
-    def _tokenize(self, expression: str) -> list:
-        """
-        Tokenizes the arithmetic expression.
-
-        Args:
-            expression (str): The arithmetic expression to tokenize.
-
-        Returns:
-            list: A list of tokens.
-        """
-        # Remove whitespace
-        expression = expression.replace(' ', '')
-
-        # Tokenize using regex
-        tokens = re.findall(r'\d+\.\d+|\d+|[()+\-*/]', expression)
-
-        return tokens
-
-    def _to_rpn(self, tokens: list) -> list:
-        """
-        Converts the tokenized expression to Reverse Polish Notation (RPN).
-
-        Args:
-            tokens (list): The list of tokens.
-
-        Returns:
-            list: The RPN expression.
-        """
-        output = []
-        stack = []
-
-        for token in tokens:
-            if token in self.operators:
-                while (stack and stack[-1] in self.operators and
-                       self.operators[stack[-1]][0] >= self.operators[token][0]):
-                    output.append(stack.pop())
-                stack.append(token)
-            elif token == '(':
-                stack.append(token)
-            elif token == ')':
-                while stack and stack[-1] != '(':
-                    output.append(stack.pop())
-                stack.pop()  # Remove '(' from stack
-            else:
-                output.append(float(token))
-
-        while stack:
-            output.append(stack.pop())
-
-        return output
-
-    def _evaluate_rpn(self, rpn: list) -> float:
-        """
-        Evaluates the Reverse Polish Notation (RPN) expression.
-
-        Args:
-            rpn (list): The RPN expression.
-
-        Returns:
-            float: The result of the evaluation.
+            ValueError: If division by zero is attempted.
         """
         stack = []
-
-        for token in rpn:
-            if token in self.operators:
-                y, x = stack.pop(), stack.pop()
-                if token == '/' and y == 0:
-                    raise ValueError("Division by zero.")
-                stack.append(self.operators[token][1](x, y))
+        for token in postfix:
+            if token.replace('.', '').isdigit():
+                stack.append(float(token))
             else:
-                stack.append(token)
-
+                b, a = stack.pop(), stack.pop()
+                if token == '+':
+                    stack.append(a + b)
+                elif token == '-':
+                    stack.append(a - b)
+                elif token == '*':
+                    stack.append(a * b)
+                elif token == '/':
+                    if b == 0:
+                        raise ValueError("Division by zero")
+                    stack.append(a / b)
+        
         return stack[0]
 
-# Example usage:
+# Example usage
 if __name__ == "__main__":
-    calculator = Calculator()
-    expression = "3 + 5 * (2 - 8) / 2"
+    calc = Calculator()
     try:
-        result = calculator.calculate(expression)
+        result = calc.calculate("(3 + 4) * 2 / (1 - 5)")
         print(f"Result: {result}")
     except ValueError as e:
         print(f"Error: {e}")

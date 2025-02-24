@@ -1,122 +1,130 @@
+from typing import List, Dict, Union
 
 class TaskManager:
+    """
+    A class to manage a to-do list with tasks.
+
+    This class provides methods to add, remove, search, finish, and retrieve tasks.
+    It uses an in-memory data structure for storage and ensures efficient operations.
+    """
+
     def __init__(self):
-        """Initialize the TaskManager with an empty task list and a task ID counter."""
-        self.tasks = {}
-        self.next_id = 1
+        """
+        Initialize the TaskManager with an empty task list and a counter for task IDs.
+        """
+        self._tasks: Dict[int, Dict[str, Union[str, bool]]] = {}
+        self._next_id: int = 1
 
     def add(self, task_name: str, task_description: str) -> int:
         """
-        Adds a task and returns its unique ID.
+        Add a new task to the to-do list.
 
         Args:
             task_name (str): The name of the task.
-            task_description (str): The description of the task.
+            task_description (str): A description of the task.
 
         Returns:
             int: The unique ID of the newly added task.
+
+        Raises:
+            ValueError: If task_name or task_description is empty.
         """
-        if not task_name or not task_description:
+        if not task_name.strip() or not task_description.strip():
             raise ValueError("Task name and description cannot be empty.")
 
-        task_id = self.next_id
-        self.tasks[task_id] = {
-            "id": task_id,
-            "task_name": task_name,
-            "task_description": task_description,
+        task_id = self._next_id
+        self._tasks[task_id] = {
+            "name": task_name.strip(),
+            "description": task_description.strip(),
             "is_finished": False
         }
-        self.next_id += 1
+        self._next_id += 1
+
         return task_id
 
     def remove(self, task_id: int) -> bool:
         """
-        Removes a task by ID and returns success status.
+        Remove a task from the to-do list by its ID.
 
         Args:
-            task_id (int): The ID of the task to remove.
+            task_id (int): The ID of the task to be removed.
 
         Returns:
             bool: True if the task was successfully removed, False otherwise.
         """
-        if task_id in self.tasks:
-            del self.tasks[task_id]
-            return True
-        return False
+        if task_id < 1 or task_id not in self._tasks:
+            return False
 
-    def search(self, task_term: str) -> list[dict]:
+        del self._tasks[task_id]
+        return True
+
+    def search(self, task_term: str) -> List[Dict[str, Union[int, str, bool]]]:
         """
-        Searches tasks by name or description and returns matching results.
+        Search for tasks by name or description.
 
         Args:
-            task_term (str): The term to search for in task names or descriptions.
+            task_term (str): The term to search for in task names and descriptions.
 
         Returns:
-            list[dict]: A list of tasks that match the search term.
+            List[Dict[str, Union[int, str, bool]]]: A list of tasks matching the search term.
         """
-        if not task_term:
-            raise ValueError("Search term cannot be empty.")
+        if not task_term.strip():
+            return []
 
-        return [task for task in self.tasks.values() if task_term in task["task_name"] or task_term in task["task_description"]]
+        task_term = task_term.lower()
+        results = []
+
+        for task_id, task in self._tasks.items():
+            if task_term in task["name"].lower() or task_term in task["description"].lower():
+                results.append({
+                    "id": task_id,
+                    "task_name": task["name"],
+                    "task_description": task["description"],
+                    "is_finished": task["is_finished"]
+                })
+
+        return results
 
     def finish(self, task_id: int) -> bool:
         """
-        Marks a task as completed.
+        Mark a task as completed.
 
         Args:
-            task_id (int): The ID of the task to mark as completed.
+            task_id (int): The ID of the task to be marked as completed.
 
         Returns:
             bool: True if the task was successfully marked as completed, False otherwise.
         """
-        if task_id in self.tasks:
-            self.tasks[task_id]["is_finished"] = True
-            return True
-        return False
+        if task_id < 1 or task_id not in self._tasks:
+            return False
 
-    def get_all(self) -> list[dict]:
+        self._tasks[task_id]["is_finished"] = True
+        return True
+
+    def get_all(self) -> List[Dict[str, Union[int, str, bool]]]:
         """
-        Retrieves all tasks with their details.
+        Retrieve all tasks from the to-do list.
 
         Returns:
-            list[dict]: A list of all tasks.
+            List[Dict[str, Union[int, str, bool]]]: A list of all tasks.
         """
-        return list(self.tasks.values())
+        return [
+            {
+                "id": task_id,
+                "task_name": task["name"],
+                "task_description": task["description"],
+                "is_finished": task["is_finished"]
+            }
+            for task_id, task in self._tasks.items()
+        ]
 
     def clear_all(self) -> bool:
         """
-        Deletes all tasks and returns success status.
+        Clear all tasks from the to-do list.
 
         Returns:
-            bool: True if all tasks were successfully deleted, False otherwise.
+            bool: True if all tasks were successfully cleared, False otherwise.
         """
-        self.tasks.clear()
-        self.next_id = 1
+        self._tasks.clear()
+        self._next_id = 1
         return True
-
-# Example usage:
-if __name__ == "__main__":
-    task_manager = TaskManager()
-
-    # Add tasks
-    task_id1 = task_manager.add("Buy groceries", "Milk, Bread, Eggs")
-    task_id2 = task_manager.add("Read book", "Finish reading 'Python Cookbook'")
-
-    # Get all tasks
-    print(task_manager.get_all())
-
-    # Search tasks
-    print(task_manager.search("book"))
-
-    # Finish a task
-    task_manager.finish(task_id1)
-
-    # Remove a task
-    task_manager.remove(task_id2)
-
-    # Get all tasks again
-    print(task_manager.get_all())
-
-    # Clear all tasks
-    task_manager.clear_all()
-    print(task_manager.get_all())

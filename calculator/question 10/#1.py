@@ -1,91 +1,141 @@
+import re
 
 class Calculator:
-    def __init__(self):
-        self.operators = {'+', '-', '*', '/'}
-        self.precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
+    """
+    A console-based arithmetic calculator that supports addition, subtraction, multiplication, and division,
+    with correct operator precedence and parentheses.
 
-    def validate_expression(self, expression: str) -> bool:
-        """Validate the expression for balanced parentheses and valid characters."""
-        stack = []
-        for char in expression:
-            if char == '(':
-                stack.append(char)
-            elif char == ')':
-                if not stack or stack.pop() != '(':
-                    return False
-            elif char not in self.operators and not char.isdigit() and char not in {'.', ' ', '-'}:
-                return False
-        return not stack
+    Attributes:
+        expression (str): The mathematical expression to be evaluated.
+    """
 
-    def parse_expression(self, expression: str):
-        """Convert the expression to a list of tokens."""
-        tokens = []
-        number = ''
-        for char in expression:
-            if char.isdigit() or char == '.':
-                number += char
-            else:
-                if number:
-                    tokens.append(float(number) if '.' in number else int(number))
-                    number = ''
-                if char in self.operators or char in {'(', ')'}:
-                    tokens.append(char)
-        if number:
-            tokens.append(float(number) if '.' in number else int(number))
-        return tokens
+    def __init__(self, expression: str):
+        """
+        Initialize the Calculator with the given expression.
 
-    def apply_operator(self, operators, values):
-        """Apply an operator to the values."""
-        operator = operators.pop()
-        right = values.pop()
-        left = values.pop()
-        if operator == '+':
-            values.append(left + right)
-        elif operator == '-':
-            values.append(left - right)
-        elif operator == '*':
-            values.append(left * right)
-        elif operator == '/':
-            if right == 0:
-                raise ValueError("Division by zero")
-            values.append(left / right)
+        Args:
+            expression (str): The mathematical expression to evaluate.
 
-    def evaluate_expression(self, tokens):
-        """Evaluate the expression using the Shunting Yard algorithm."""
-        values = []
-        operators = []
+        Raises:
+            ValueError: If the expression contains invalid characters or unbalanced parentheses.
+        """
+        self.expression = expression
+        self._validate_expression()
+
+    def _validate_expression(self):
+        """
+        Validate the expression for correctness.
+
+        Raises:
+            ValueError: If the expression contains invalid characters or unbalanced parentheses.
+        """
+        if not re.match(r'^[\d\s\+\-\*\/\(\)]+$', self.expression):
+            raise ValueError("Invalid characters in expression.")
+        
+        if self.expression.count('(') != self.expression.count(')'):
+            raise ValueError("Unbalanced parentheses in expression.")
+
+    def calculate(self) -> float:
+        """
+        Evaluate the arithmetic expression and return the result.
+
+        Returns:
+            float: The result of the evaluated expression.
+
+        Raises:
+            ValueError: If division by zero is attempted.
+        """
+        try:
+            tokens = self._tokenize()
+            postfix = self._infix_to_postfix(tokens)
+            return self._evaluate_postfix(postfix)
+        except ZeroDivisionError:
+            raise ValueError("Division by zero is not allowed.")
+
+    def _tokenize(self) -> list:
+        """
+        Convert the input string into a list of tokens.
+
+        Returns:
+            list: A list of tokens representing numbers and operators.
+        """
+        token_pattern = r'\d*\.?\d+|\+|\-|*|\/|\(|\)'
+        return re.findall(token_pattern, self.expression)
+
+    def _infix_to_postfix(self, tokens: list) -> list:
+        """
+        Convert an infix expression to postfix notation using the Shunting Yard algorithm.
+
+        Args:
+            tokens (list): A list of tokens in infix notation.
+
+        Returns:
+            list: A list of tokens in postfix notation.
+        """
+        precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
+        output_queue = []
+        operator_stack = []
+
         for token in tokens:
-            if isinstance(token, (int, float)):
-                values.append(token)
+            if token.replace('.', '').isdigit():
+                output_queue.append(token)
+            elif token in '+-*/':
+                while (operator_stack and operator_stack[-1] != '(' and
+                       precedence.get(operator_stack[-1], 0) >= precedence[token]):
+                    output_queue.append(operator_stack.pop())
+                operator_stack.append(token)
             elif token == '(':
-                operators.append(token)
+                operator_stack.append(token)
             elif token == ')':
-                while operators and operators[-1] != '(':
-                    self.apply_operator(operators, values)
-                operators.pop() # Remove the '('
-            else:
-                while (operators and operators[-1] in self.operators and
-                       self.precedence[operators[-1]] >= self.precedence[token]):
-                    self.apply_operator(operators, values)
-                operators.append(token)
-        while operators:
-            self.apply_operator(operators, values)
-        return values[0]
+                while operator_stack and operator_stack[-1] != '(':
+                    output_queue.append(operator_stack.pop())
+                if operator_stack and operator_stack[-1] == '(':
+                    operator_stack.pop()
+                else:
+                    raise ValueError("Mismatched parentheses")
 
-    def calculate(self, expression: str) -> float:
-        """Evaluate the expression and return the result."""
-        expression = expression.replace(' ', '')
-        if not self.validate_expression(expression):
-            raise ValueError("Invalid expression")
-        tokens = self.parse_expression(expression)
-        return self.evaluate_expression(tokens)
+        while operator_stack:
+            if operator_stack[-1] == '(':
+                raise ValueError("Mismatched parentheses")
+            output_queue.append(operator_stack.pop())
+
+        return output_queue
+
+    def _evaluate_postfix(self, postfix: list) -> float:
+        """
+        Evaluate a postfix expression.
+
+        Args:
+            postfix (list): A list of tokens in postfix notation.
+
+        Returns:
+            float: The result of the evaluated postfix expression.
+        """
+        stack = []
+
+        for token in postfix:
+            if token.replace('.', '').isdigit():
+                stack.append(float(token))
+            else:
+                b, a = stack.pop(), stack.pop()
+                if token == '+':
+                    stack.append(a + b)
+                elif token == '-':
+                    stack.append(a - b)
+                elif token == '*':
+                    stack.append(a * b)
+                elif token == '/':
+                    if b == 0:
+                        raise ZeroDivisionError("Division by zero")
+                    stack.append(a / b)
+
+        return stack[0]
 
 # Example usage:
 if __name__ == "__main__":
-    calculator = Calculator()
-    expression = input("Enter your arithmetic expression: ")
     try:
-        result = calculator.calculate(expression)
+        calc = Calculator("3 + 4 * (2 - 1)")
+        result = calc.calculate()
         print(f"Result: {result}")
     except ValueError as e:
         print(f"Error: {e}")
