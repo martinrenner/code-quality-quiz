@@ -1,107 +1,145 @@
+from typing import List, Dict, Union
 
 class TaskManager:
     def __init__(self):
         """
-        Initializes the TaskManager with an empty task list.
+        Initializes a TaskManager with an empty list of tasks stored in memory.
         """
         self.tasks = []
-        self.next_id = 1
+        self.next_id = 1  # Unique identifier for each task starting from 1
+
+    def _validate_id(self, task_id: int) -> None:
+        """
+        Validates that the provided task ID is valid and exists in the list.
+
+        Args:
+            task_id (int): The ID of the task to validate.
+
+        Raises:
+            ValueError: If the ID is invalid or does not exist.
+        """
+        if not isinstance(task_id, int) or task_id < 1:
+            raise ValueError("Invalid task ID. ID must be a positive integer.")
+        if task_id >= self.next_id or self.tasks[task_id - 1] is None:
+            raise ValueError("Task with the given ID does not exist.")
+
+    def _validate_strings(self, *args: str) -> None:
+        """
+        Validates that the input strings are not empty.
+
+        Args:
+            *args: Variable number of strings to validate.
+
+        Raises:
+            ValueError: If any of the strings are empty.
+        """
+        for arg in args:
+            if not arg.strip():
+                raise ValueError("String input cannot be empty.")
 
     def add(self, task_name: str, task_description: str) -> int:
         """
-        Adds a task to the list and returns its unique ID.
+        Adds a new task to the list and returns its unique ID.
 
-        :param task_name: The name of the task.
-        :param task_description: The description of the task.
-        :return: The unique ID of the task.
-        :raises ValueError: If task_name or task_description is empty.
+        Args:
+            task_name (str): The name of the task.
+            task_description (str): A detailed description of the task.
+
+        Returns:
+            int: The unique ID of the newly added task.
+
+        Raises:
+            ValueError: If task_name or task_description is empty.
         """
-        if not task_name or not task_description:
-            raise ValueError("Task name and description must not be empty.")
-
+        self._validate_strings(task_name, task_description)
         task_id = self.next_id
+        self.tasks.append({
+            "id": task_id,
+            "task_name": task_name.strip(),
+            "task_description": task_description.strip(),
+            "is_finished": False
+        })
         self.next_id += 1
-        task = {
-            'id': task_id,
-            'task_name': task_name,
-            'task_description': task_description,
-            'is_finished': False
-        }
-        self.tasks.append(task)
         return task_id
 
     def remove(self, task_id: int) -> bool:
         """
-        Removes a task by its unique ID.
+        Removes a task by its ID and returns the success status.
 
-        :param task_id: The unique ID of the task to remove.
-        :return: True if the task was successfully removed, False otherwise.
-        :raises ValueError: If task_id is non-positive.
+        Args:
+            task_id (int): The ID of the task to remove.
+
+        Returns:
+            bool: True if the task was successfully removed, False otherwise.
+
+        Raises:
+            ValueError: If the task_id is invalid or does not exist.
         """
-        if task_id <= 0:
-            raise ValueError("Task ID must be a positive integer.")
+        self._validate_id(task_id)
+        self.tasks[task_id - 1] = None
+        return True
 
-        for task in self.tasks:
-            if task['id'] == task_id:
-                self.tasks.remove(task)
-                return True
-        return False
-
-    def search(self, task_term: str) -> list[dict]:
+    def search(self, task_term: str) -> List[Dict[str, Union[int, str, bool]]]:
         """
         Searches tasks by name or description and returns matching results.
 
-        :param task_term: The term to search for in task names or descriptions.
-        :return: A list of tasks that match the search term.
+        Args:
+            task_term (str): A term to search within the task name and description.
+
+        Returns:
+            List[Dict[str, Union[int, str, bool]]]: A list of tasks that match the search term.
+
+        Raises:
+            ValueError: If the task_term is empty.
         """
-        matching_tasks = [task for task in self.tasks if task_term in task['task_name'] or task_term in task['task_description']]
-        return matching_tasks
+        self._validate_strings(task_term)
+        task_term = task_term.lower()
+        results = []
+        for task in self.tasks:
+            if task is None:
+                continue
+            if task_term in task["task_name"].lower() or task_term in task["task_description"].lower():
+                results.append({
+                    "id": task["id"],
+                    "task_name": task["task_name"],
+                    "task_description": task["task_description"],
+                    "is_finished": task["is_finished"]
+                })
+        return results
 
     def finish(self, task_id: int) -> bool:
         """
-        Marks a task as completed.
+        Marks a task as completed and returns the success status.
 
-        :param task_id: The unique ID of the task to mark as completed.
-        :return: True if the task was successfully marked as completed, False otherwise.
-        :raises ValueError: If task_id is non-positive.
+        Args:
+            task_id (int): The ID of the task to mark as completed.
+
+        Returns:
+            bool: True if the task was successfully marked as completed, False otherwise.
+
+        Raises:
+            ValueError: If the task_id is invalid or does not exist.
         """
-        if task_id <= 0:
-            raise ValueError("Task ID must be a positive integer.")
+        self._validate_id(task_id)
+        self.tasks[task_id - 1]["is_finished"] = True
+        return True
 
-        for task in self.tasks:
-            if task['id'] == task_id:
-                task['is_finished'] = True
-                return True
-        return False
-
-    def get_all(self) -> list[dict]:
+    def get_all(self) -> List[Dict[str, Union[int, str, bool]]]:
         """
         Retrieves all tasks with their details.
 
-        :return: A list of all tasks.
+        Returns:
+            List[Dict[str, Union[int, str, bool]]]: A list containing all tasks and their information.
         """
-        return self.tasks
+        return [task for task in self.tasks if task is not None]
 
     def clear_all(self) -> bool:
         """
-        Deletes all tasks.
+        Deletes all tasks and returns the success status.
 
-        :return: True if all tasks were successfully deleted.
+        Returns:
+            bool: True if all tasks were successfully cleared, False otherwise.
         """
         self.tasks = []
         self.next_id = 1
         return True
-
-# Example usage
-if __name__ == "__main__":
-    manager = TaskManager()
-    print(manager.add("Buy groceries", "Milk, Bread, Eggs"))
-    print(manager.add("Read book", "Finish reading 'Python Programming'"))
-    print(manager.get_all())
-    print(manager.finish(1))
-    print(manager.get_all())
-    print(manager.search("Read"))
-    print(manager.remove(2))
-    print(manager.get_all())
-    print(manager.clear_all())
-    print(manager.get_all())

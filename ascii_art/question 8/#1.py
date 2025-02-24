@@ -1,209 +1,159 @@
+from typing import List
+import math
 
 class AsciiArt:
     """
     A class for generating various ASCII art shapes.
-
-    This class provides methods to draw squares, rectangles,
-    approximate circles, right-angled triangles, and pyramids
-    using a specified symbol.  It emphasizes code quality,
-    efficiency, and adherence to good coding practices.
+    Implements drawing functionality for basic geometric shapes.
     """
-
-    def __init__(self):
-        pass # currently no initialization required
-
-    def _validate_input(self, dimensions, symbol):
+    
+    @staticmethod
+    def _validate_input(dimension: int, symbol: str) -> None:
         """
-        Validates the input parameters for shape drawing functions.
-
+        Validates input parameters for all drawing functions.
+        
         Args:
-            dimensions (list of int): A list of integer dimensions (width, height, etc.).
-            symbol (str): The character to use for drawing the shape.
-
+            dimension: Integer representing size of the shape
+            symbol: String character to draw the shape with
+            
         Raises:
-            TypeError: If dimensions are not integers or symbol is not a string.
-            ValueError: If dimensions are not positive or symbol is not a single character.
+            ValueError: If inputs are invalid
         """
-        if not all(isinstance(dim, int) for dim in dimensions):
-            raise TypeError("All dimensions must be integers.")
-        if not all(dim > 0 for dim in dimensions):
-            raise ValueError("All dimensions must be positive.")
-        if not isinstance(symbol, str):
-            raise TypeError("Symbol must be a string.")
-        if len(symbol) != 1:
-            raise ValueError("Symbol must be a single character.")
-        if not symbol.isprintable(): # Check it's printable.
-            raise ValueError("Symbol must be a printable character.")
-
+        if not isinstance(dimension, int) or dimension <= 0:
+            raise ValueError("Dimensions must be positive integers")
+        if not isinstance(symbol, str) or len(symbol) != 1:
+            raise ValueError("Symbol must be a single character")
 
     def draw_square(self, width: int, symbol: str) -> str:
         """
-        Draws a filled square of the given width using the specified symbol.
-
+        Draws a square with the specified width and symbol.
+        
         Args:
-            width (int): The width (and height) of the square.
-            symbol (str): The character to use for drawing the square.
-
+            width: Width and height of the square
+            symbol: Character to draw the square with
+            
         Returns:
-            str: A multi-line string representing the ASCII art square.
-
-        Raises:
-            TypeError: If input types are invalid.
-            ValueError: If input values are invalid.
+            Multi-line string representing the square
         """
-        self._validate_input([width], symbol)  # Validate inputs
-        return "\n".join([symbol * width] * width)
-
+        self._validate_input(width, symbol)
+        rows = [symbol * width for _ in range(width)]
+        return '\n'.join(rows)
 
     def draw_rectangle(self, width: int, height: int, symbol: str) -> str:
         """
-        Draws a filled rectangle of the given dimensions using the specified symbol.
-
+        Draws a rectangle with the specified dimensions and symbol.
+        
         Args:
-            width (int): The width of the rectangle.
-            height (int): The height of the rectangle.
-            symbol (str): The character to use.
-
+            width: Width of the rectangle
+            height: Height of the rectangle
+            symbol: Character to draw the rectangle with
+            
         Returns:
-            str: A multi-line string representing the ASCII art rectangle.
-
-        Raises:
-            TypeError: If input types are invalid.
-            ValueError: If input values are invalid.
+            Multi-line string representing the rectangle
         """
-        self._validate_input([width, height], symbol)
-        return "\n".join([symbol * width] * height)
-
+        self._validate_input(width, symbol)
+        self._validate_input(height, symbol)
+        rows = [symbol * width for _ in range(height)]
+        return '\n'.join(rows)
 
     def draw_circle(self, diameter: int, symbol: str) -> str:
         """
-        Draws an approximate filled circle using the specified symbol.
-
-        The circle is approximated by checking the distance of each point
-        from the center and drawing the symbol if the distance is within
-        the radius.  This creates a filled circle.
-
+        Draws an approximate circle with the specified diameter and symbol.
+        
         Args:
-            diameter (int): The diameter of the circle.
-            symbol (str): The character to use.
-
+            diameter: Diameter of the circle
+            symbol: Character to draw the circle with
+            
         Returns:
-            str: A multi-line string representing the approximate ASCII art circle.
-
-        Raises:
-            TypeError: If input types are invalid.
-            ValueError: If input values are invalid.
+            Multi-line string representing the circle
         """
-        self._validate_input([diameter], symbol)
-        radius = diameter / 2
-        lines = []
-        for y in range(diameter):
-            line = ""
-            for x in range(diameter):
-                # Calculate distance from center
-                dist_x = x - (radius - 0.5)  # Offset by 0.5 for visual centering
-                dist_y = y - (radius - 0.5)
-                distance_from_center = (dist_x**2 + dist_y**2)**0.5
-
-                # Draw symbol if within the radius (with tolerance for rounding)
-                if distance_from_center <= radius + 0.5 : # Additional tolerance
-                   line += symbol
+        self._validate_input(diameter, symbol)
+        
+        radius = diameter // 2
+        rows: List[str] = []
+        
+        for y in range(-radius, radius + 1):
+            row = ""
+            for x in range(-radius, radius + 1):
+                # Using circle equation (x²/a² + y²/b² ≤ 1)
+                if x*x + y*y <= radius*radius:
+                    row += symbol
                 else:
-                    line += " " # Space for outside the circle.
-            lines.append(line)
-        return "\n".join(lines)
-
+                    row += " "
+            rows.append(row)
+            
+        return '\n'.join(rows)
 
     def draw_triangle(self, width: int, height: int, symbol: str) -> str:
         """
-        Draws a filled right-angled triangle.
-
+        Draws a right-angled triangle with the specified dimensions and symbol.
+        
         Args:
-            width (int):  The width of the base of the triangle.
-            height (int): The height of the triangle.
-            symbol (str): The character to use.
-
+            width: Width of the triangle
+            height: Height of the triangle
+            symbol: Character to draw the triangle with
+            
         Returns:
-            str: Multi-line string: ASCII art triangle.
-
-        Raises:
-            TypeError: If input types are invalid.
-            ValueError: If input values are invalid.
+            Multi-line string representing the triangle
         """
-        self._validate_input([width, height], symbol)
-        lines = []
-        for row in range(height):
-            # Calculate the number of symbols to draw in this row,
-            # scaled by the row number and height.
-            num_symbols = int((row + 1) / height * width)
-            num_symbols = max(1, num_symbols)   # Ensure at least one symbol per row
-            lines.append(symbol * num_symbols)
-        return "\n".join(lines)
-
+        self._validate_input(width, symbol)
+        self._validate_input(height, symbol)
+        
+        rows = []
+        for i in range(height):
+            # Calculate symbols in current row using proportion
+            symbols_count = math.ceil((i + 1) * width / height)
+            rows.append(symbol * symbols_count)
+            
+        return '\n'.join(rows)
 
     def draw_pyramid(self, height: int, symbol: str) -> str:
         """
-        Draws a filled symmetrical pyramid using specified symbol.
-
+        Draws a symmetrical pyramid with the specified height and symbol.
+        
         Args:
-            height (int): The height of the pyramid.
-            symbol (str): The character to use.
-
+            height: Height of the pyramid
+            symbol: Character to draw the pyramid with
+            
         Returns:
-            str: A multi-line string representing the ASCII art pyramid.
-
-        Raises:
-            TypeError: If input types are invalid.
-            ValueError: If input values are invalid.
+            Multi-line string representing the pyramid
         """
-        self._validate_input([height], symbol)
-        lines = []
-        for row in range(height):
-            # Calculate leading spaces and number of symbols for each row
-            spaces = " " * (height - row - 1)
-            symbols = symbol * (2 * row + 1)
-            lines.append(spaces + symbols)
-        return "\n".join(lines)
-
+        self._validate_input(height, symbol)
+        
+        rows = []
+        for i in range(height):
+            # Calculate padding and symbols for current row
+            spaces = " " * (height - i - 1)
+            symbols = symbol * (2 * i + 1)
+            rows.append(spaces + symbols)
+            
+        return '\n'.join(rows)
 
 
 def main():
     """
-    Main function to demonstrate the AsciiArt class.
+    Main function to demonstrate the ASCII art generator.
     """
-    art_generator = AsciiArt()
-
     try:
-        # Get user input for shape and symbol
-        shape_choice = input("Enter shape (square, rectangle, circle, triangle, pyramid): ").lower()
-        symbol = input("Enter the symbol to use: ")
-
-        # Draw the chosen shape based on user input
-        if shape_choice == "square":
-            width = int(input("Enter width: "))
-            print(art_generator.draw_square(width, symbol))
-        elif shape_choice == "rectangle":
-            width = int(input("Enter width: "))
-            height = int(input("Enter height: "))
-            print(art_generator.draw_rectangle(width, height, symbol))
-        elif shape_choice == "circle":
-            diameter = int(input("Enter diameter: "))
-            print(art_generator.draw_circle(diameter, symbol))
-        elif shape_choice == "triangle":
-            width = int(input("Enter width: "))
-            height = int(input("Enter height: "))
-            print(art_generator.draw_triangle(width, height, symbol))
-        elif shape_choice == "pyramid":
-            height = int(input("Enter height: "))
-            print(art_generator.draw_pyramid(height, symbol))
-        else:
-            print("Invalid shape choice.")
-
-    except (ValueError, TypeError) as e:
-        print(f"Error: {e}")  # Handle input errors gracefully
+        ascii_art = AsciiArt()
+        
+        # Example usage
+        print("Square (4x4):")
+        print(ascii_art.draw_square(4, "*"))
+        print("\nRectangle (6x3):")
+        print(ascii_art.draw_rectangle(6, 3, "#"))
+        print("\nCircle (diameter 7):")
+        print(ascii_art.draw_circle(7, "@"))
+        print("\nTriangle (5x3):")
+        print(ascii_art.draw_triangle(5, 3, "+"))
+        print("\nPyramid (height 4):")
+        print(ascii_art.draw_pyramid(4, "$"))
+        
+    except ValueError as e:
+        print(f"Error: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"Unexpected error: {e}")
+
 
 if __name__ == "__main__":
     main()
-

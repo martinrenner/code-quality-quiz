@@ -1,152 +1,202 @@
-
-import re  # Used for more robust input splitting
+from typing import List, Union
+import re
 
 class Calculator:
     """
-    A console-based arithmetic calculator that supports addition, subtraction,
-    multiplication, division, and parentheses.  It handles operator precedence,
-    floating-point numbers, and input validation.
+    A calculator class that evaluates arithmetic expressions following operator precedence.
+    Supports addition, subtraction, multiplication, division, and parentheses.
     """
+
+    def __init__(self):
+        """Initialize the calculator with operator precedence rules."""
+        self.operators = {
+            '+': (1, lambda x, y: x + y),
+            '-': (1, lambda x, y: x - y),
+            '*': (2, lambda x, y: x * y),
+            '/': (2, lambda x, y: x / y)
+        }
+
+    def tokenize(self, expression: str) -> List[str]:
+        """
+        Convert expression string into tokens.
+        
+        Args:
+            expression (str): The arithmetic expression to tokenize
+            
+        Returns:
+            List[str]: List of tokens (numbers, operators, parentheses)
+            
+        Raises:
+            ValueError: If invalid characters are found in the expression
+        """
+        # Remove whitespace and validate characters
+        expression = expression.replace(' ', '')
+        valid_chars = r'^[0-9+\-*/().,]+$'
+        if not re.match(valid_chars, expression):
+            raise ValueError("Expression contains invalid characters")
+
+        tokens = []
+        number = ''
+        
+        for char in expression:
+            if char.isdigit() or char == '.':
+                number += char
+            else:
+                if number:
+                    tokens.append(number)
+                    number = ''
+                tokens.append(char)
+                
+        if number:
+            tokens.append(number)
+            
+        return tokens
+
+    def validate_parentheses(self, tokens: List[str]) -> None:
+        """
+        Validate parentheses balance in the expression.
+        
+        Args:
+            tokens (List[str]): List of tokens
+            
+        Raises:
+            ValueError: If parentheses are unbalanced
+        """
+        count = 0
+        for token in tokens:
+            if token == '(':
+                count += 1
+            elif token == ')':
+                count -= 1
+            if count < 0:
+                raise ValueError("Unmatched closing parenthesis")
+        if count != 0:
+            raise ValueError("Unmatched opening parenthesis")
+
+    def to_postfix(self, tokens: List[str]) -> List[str]:
+        """
+        Convert infix expression to postfix notation using Shunting Yard algorithm.
+        
+        Args:
+            tokens (List[str]): List of tokens in infix notation
+            
+        Returns:
+            List[str]: List of tokens in postfix notation
+        """
+        output = []
+        stack = []
+
+        for token in tokens:
+            if token.replace('.', '').replace('-', '').isdigit():
+                output.append(token)
+            elif token == '(':
+                stack.append(token)
+            elif token == ')':
+                while stack and stack[-1] != '(':
+                    output.append(stack.pop())
+                stack.pop()  # Remove '('
+            else:
+                while (stack and stack[-1] != '(' and 
+                       self.operators[token][0] <= self.operators[stack[-1]][0]):
+                    output.append(stack.pop())
+                stack.append(token)
+
+        while stack:
+            output.append(stack.pop())
+
+        return output
+
+    def evaluate_postfix(self, tokens: List[str]) -> float:
+        """
+        Evaluate postfix expression.
+        
+        Args:
+            tokens (List[str]): List of tokens in postfix notation
+            
+        Returns:
+            float: Result of the expression
+            
+        Raises:
+            ValueError: If division by zero is attempted
+            ValueError: If expression is invalid
+        """
+        stack = []
+
+        for token in tokens:
+            if token in self.operators:
+                try:
+                    b = float(stack.pop())
+                    a = float(stack.pop())
+                    if token == '/' and b == 0:
+                        raise ValueError("Division by zero")
+                    result = self.operators[token][1](a, b)
+                    stack.append(str(result))
+                except IndexError:
+                    raise ValueError("Invalid expression")
+            else:
+                stack.append(token)
+
+        if len(stack) != 1:
+            raise ValueError("Invalid expression")
+        return float(stack[0])
 
     def calculate(self, expression: str) -> float:
         """
-        Evaluates an arithmetic expression.
-
+        Evaluate an arithmetic expression.
+        
         Args:
-            expression: The arithmetic expression as a string.
-
+            expression (str): The arithmetic expression to evaluate
+            
         Returns:
-            The result of the evaluation as a float.
-
+            float: Result of the expression
+            
         Raises:
-            ValueError: If the expression is invalid (e.g., unbalanced parentheses,
-                        invalid characters, division by zero).
+            ValueError: If the expression is invalid
         """
         try:
-            tokens = self._tokenize(expression)
-            parsed_expression = self._parse(tokens)
-            result = self._evaluate(parsed_expression)
+            # Tokenize and validate
+            tokens = self.tokenize(expression)
+            self.validate_parentheses(tokens)
+            
+            # Convert to postfix and evaluate
+            postfix = self.to_postfix(tokens)
+            result = self.evaluate_postfix(postfix)
+            
             return result
-        except ValueError as e:
-            raise ValueError(f"Invalid expression: {e}")
+            
+        except Exception as e:
+            raise ValueError(f"Invalid expression: {str(e)}")
 
 
-    def _tokenize(self, expression: str) -> list[str]:
-        """
-        Tokenizes the input expression into a list of numbers, operators, and parentheses.
-
-        Args:
-            expression: The arithmetic expression.
-
-        Returns:
-           A list of tokens.
-
-        Raises:
-            ValueError:  If the expression contains invalid characters.
-        """
-        # Use regular expressions for more robust tokenization.  This handles
-        # whitespace, negative numbers gracefully, and catches invalid characters.
-        tokens = re.findall(r"(\d+\.?\d*|\.\d+|[-+*/()]|\s+)", expression)
-        tokens = [t for t in tokens if not t.isspace()]  # Remove whitespace
-
-        # Check for invalid characters (anything not a digit, operator, ., or parenthesis).
-        for token in tokens:
-            if not re.match(r"^\d+\.?\d*$|^\.\d+$|^[-+*/()]$", token):
-                raise ValueError(f"Invalid character: {token}")
-        return tokens
-
-    def _parse(self, tokens: list[str]) -> list:
-         """
-         Parses tokens into Reverse Polish Notation (RPN) using the Shunting Yard algorithm.
-         This handles operator precedence and parentheses.
-
-         Args:
-             tokens: A list of tokens from the _tokenize method.
-
-         Returns:
-             A list representing the expression in RPN.
-
-        Raises:
-            ValueError: If parentheses are unbalanced.
-         """
-         output_queue = []
-         operator_stack = []
-         precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
-
-         for token in tokens:
-             if re.match(r"^\d+\.?\d*$|^\.\d+$", token):  # Is it a number?
-                 output_queue.append(float(token))
-             elif token in precedence:  # Is it an operator?
-                 while (operator_stack and operator_stack[-1] != '(' and
-                        precedence.get(operator_stack[-1], -1) >= precedence.get(token, -1)):
-                     output_queue.append(operator_stack.pop())
-                 operator_stack.append(token)
-             elif token == '(':
-                 operator_stack.append(token)
-             elif token == ')':
-                 while operator_stack and operator_stack[-1] != '(':
-                     output_queue.append(operator_stack.pop())
-                 if not operator_stack:
-                     raise ValueError("Unbalanced parentheses")
-                 operator_stack.pop()  # Remove the '('
-
-         while operator_stack:
-             if operator_stack[-1] == '(':  # Check for leftover '('
-                 raise ValueError("Unbalanced parentheses")
-             output_queue.append(operator_stack.pop())
-
-         return output_queue
-
-    def _evaluate(self, rpn_expression: list) -> float:
-        """
-        Evaluates an expression in Reverse Polish Notation (RPN).
-
-        Args:
-            rpn_expression: A list representing the expression in RPN.
-
-        Returns:
-            The result of the evaluation.
-
-        Raises:
-            ValueError: If division by zero occurs or if the expression is invalid.
-        """
-        stack = []
-        for token in rpn_expression:
-            if isinstance(token, float):
-                stack.append(token)
-            else:  # It's an operator
-                if len(stack) < 2:
-                    raise ValueError("Invalid expression (not enough operands)")
-                operand2 = stack.pop()
-                operand1 = stack.pop()
-                if token == '+':
-                    stack.append(operand1 + operand2)
-                elif token == '-':
-                    stack.append(operand1 - operand2)
-                elif token == '*':
-                    stack.append(operand1 * operand2)
-                elif token == '/':
-                    if operand2 == 0:
-                        raise ValueError("Division by zero")
-                    stack.append(operand1 / operand2)
-        if len(stack) != 1:
-            raise ValueError("Invalid expression (too many operands)")
-        return stack[0]
 def main():
-    """
-    Main function to run the calculator in a console loop.
-    """
+    """Main function to demonstrate calculator usage."""
     calculator = Calculator()
+    
+    print("Arithmetic Calculator")
+    print("Enter 'quit' to exit")
+    print("Supported operations: +, -, *, / and parentheses")
+    
     while True:
-        expression = input("Enter an arithmetic expression (or 'quit' to exit): ")
-        if expression.lower() == 'quit':
-            break
         try:
+            expression = input("\nEnter expression: ")
+            if expression.lower() == 'quit':
+                break
+                
             result = calculator.calculate(expression)
             print(f"Result: {result}")
+            
         except ValueError as e:
             print(f"Error: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
 if __name__ == "__main__":
     main()
 
+
+# Test cases
+calculator = Calculator()
+print(calculator.calculate("2 + 3 * 4"))  # 14.0
+print(calculator.calculate("(2 + 3) * 4"))  # 20.0
+print(calculator.calculate("2.5 * (3 + 4.5)"))  # 18.75
+print(calculator.calculate("-2 * 3.5"))  # -7.0

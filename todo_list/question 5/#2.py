@@ -1,4 +1,3 @@
-
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,15 +13,15 @@ class Task:
     created_at: datetime = datetime.now()
 
 class TaskManager:
-    """Manages todo list operations with efficient data structures."""
+    """Manages operations for the todo list application."""
     
     def __init__(self):
-        """Initialize the task manager with necessary data structures."""
+        """Initialize the TaskManager with an empty task list and ID counter."""
         self._tasks: Dict[int, Task] = {}
         self._current_id: int = 1
 
     def _validate_string_input(self, value: str, field_name: str) -> None:
-        """Validates string inputs for task fields.
+        """Validate string inputs for task fields.
         
         Args:
             value: The string to validate
@@ -35,11 +34,11 @@ class TaskManager:
             raise ValueError(f"{field_name} must be a string")
         if not value.strip():
             raise ValueError(f"{field_name} cannot be empty")
-        if len(value) > 200:  # Reasonable limit for text fields
-            raise ValueError(f"{field_name} is too long (max 200 characters)")
+        if len(value) > 100:  # Reasonable limit for task fields
+            raise ValueError(f"{field_name} cannot exceed 100 characters")
 
     def _validate_task_id(self, task_id: int) -> None:
-        """Validates task ID existence and format.
+        """Validate task ID.
         
         Args:
             task_id: The ID to validate
@@ -49,20 +48,20 @@ class TaskManager:
         """
         if not isinstance(task_id, int):
             raise ValueError("Task ID must be an integer")
-        if task_id < 1:
+        if task_id <= 0:
             raise ValueError("Task ID must be positive")
         if task_id not in self._tasks:
             raise ValueError("Task ID does not exist")
 
     def add(self, task_name: str, task_description: str) -> int:
-        """Adds a new task to the todo list.
+        """Add a new task to the list.
         
         Args:
             task_name: Name of the task
             task_description: Description of the task
             
         Returns:
-            int: The ID of the newly created task
+            int: ID of the newly created task
             
         Raises:
             ValueError: If input validation fails
@@ -70,17 +69,18 @@ class TaskManager:
         self._validate_string_input(task_name, "Task name")
         self._validate_string_input(task_description, "Task description")
 
-        task = Task(
+        new_task = Task(
             id=self._current_id,
             name=task_name,
             description=task_description
         )
-        self._tasks[self._current_id] = task
+        
+        self._tasks[self._current_id] = new_task
         self._current_id += 1
-        return task.id
+        return new_task.id
 
     def remove(self, task_id: int) -> bool:
-        """Removes a task from the todo list.
+        """Remove a task by its ID.
         
         Args:
             task_id: ID of the task to remove
@@ -96,27 +96,27 @@ class TaskManager:
         return True
 
     def search(self, task_term: str) -> List[Dict]:
-        """Searches tasks by name or description.
+        """Search tasks by name or description.
         
         Args:
             task_term: Search term to match against tasks
             
         Returns:
-            List[Dict]: List of matching tasks in dictionary format
+            List[Dict]: List of matching tasks
         """
         self._validate_string_input(task_term, "Search term")
         
+        results = []
         pattern = re.compile(task_term, re.IGNORECASE)
-        matching_tasks = []
         
         for task in self._tasks.values():
             if pattern.search(task.name) or pattern.search(task.description):
-                matching_tasks.append(self._task_to_dict(task))
-                
-        return matching_tasks
+                results.append(self._task_to_dict(task))
+        
+        return results
 
     def finish(self, task_id: int) -> bool:
-        """Marks a task as completed.
+        """Mark a task as completed.
         
         Args:
             task_id: ID of the task to mark as completed
@@ -132,30 +132,30 @@ class TaskManager:
         return True
 
     def get_all(self) -> List[Dict]:
-        """Retrieves all tasks.
+        """Get all tasks.
         
         Returns:
-            List[Dict]: List of all tasks in dictionary format
+            List[Dict]: List of all tasks
         """
         return [self._task_to_dict(task) for task in self._tasks.values()]
 
     def clear_all(self) -> bool:
-        """Removes all tasks from the todo list.
+        """Remove all tasks.
         
         Returns:
-            bool: True if all tasks were cleared successfully
+            bool: True if all tasks were removed successfully
         """
         self._tasks.clear()
         return True
 
     def _task_to_dict(self, task: Task) -> Dict:
-        """Converts a Task object to dictionary format.
+        """Convert a Task object to dictionary format.
         
         Args:
             task: Task object to convert
             
         Returns:
-            Dict: Task information in dictionary format
+            Dict: Dictionary representation of the task
         """
         return {
             'id': task.id,
@@ -165,24 +165,18 @@ class TaskManager:
         }
 
 
-# Create task manager instance
-manager = TaskManager()
+# Example usage
+task_manager = TaskManager()
 
 # Add tasks
-task_id = manager.add("Complete project", "Finish the Python project by Friday")
-manager.add("Buy groceries", "Get milk, bread, and eggs")
+task_id = task_manager.add("Complete project", "Finish the Python project by Friday")
+task_manager.add("Buy groceries", "Get milk, bread, and eggs")
 
 # Mark task as complete
-manager.finish(task_id)
+task_manager.finish(task_id)
 
-# Search for tasks
-results = manager.search("project")
+# Search tasks
+results = task_manager.search("project")
 
 # Get all tasks
-all_tasks = manager.get_all()
-
-# Remove a task
-manager.remove(task_id)
-
-# Clear all tasks
-manager.clear_all()
+all_tasks = task_manager.get_all()

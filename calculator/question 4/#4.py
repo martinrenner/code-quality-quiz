@@ -1,125 +1,199 @@
-
 import re
 from typing import List, Union
 
 class Calculator:
     """
-    A calculator class that evaluates arithmetic expressions following the order of operations.
-    Supports addition, subtraction, multiplication, division, and parentheses.
+    A calculator class that evaluates arithmetic expressions.
+
+    This class supports addition (+), subtraction (-), multiplication (*),
+    division (/), and parentheses (), while ensuring the correct order of operations.
+
+    Attributes:
+        expression (str): The mathematical expression to be evaluated.
     """
 
-    def calculate(self, expression: str) -> float:
+    def __init__(self, expression: str):
         """
-        Evaluates the given mathematical expression.
+        Initializes the Calculator with the given expression.
 
-        :param expression: A string representing the mathematical expression.
-        :return: The result of the expression as a float.
-        :raises ValueError: If the expression is invalid or contains invalid operations.
+        Args:
+            expression (str): The mathematical expression to be evaluated.
+
+        Raises:
+            ValueError: If the input expression is invalid.
         """
-        # Normalize the expression
-        normalized_expr = self._normalize_expression(expression)
-        
-        # Validate the expression
-        if not self._is_valid_expression(normalized_expr):
+        self.expression = self._normalize_expression(expression)
+
+    def calculate(self) -> float:
+        """
+        Evaluates the mathematical expression.
+
+        Returns:
+            float: The result of the calculation.
+
+        Raises:
+            ValueError: If the expression is invalid or division by zero occurs.
+        """
+        if not self._is_valid_expression():
             raise ValueError("Invalid expression")
 
-        # Evaluate the expression
-        result = self._evaluate_expression(normalized_expr)
-        
+        tokens = self._tokenize(self.expression)
+        result = self._evaluate(tokens)
         return result
-    
+
     def _normalize_expression(self, expression: str) -> str:
         """
-        Normalizes the input expression by removing spaces and validating characters.
+        Normalizes the mathematical expression by removing spaces and validating characters.
 
-        :param expression: The input expression as a string.
-        :return: The normalized expression.
-        :raises ValueError: If the expression contains invalid characters.
+        Args:
+            expression (str): The input expression.
+
+        Returns:
+            str: The normalized expression.
+
+        Raises:
+            ValueError: If the expression contains invalid characters.
         """
         allowed_chars = set("0123456789+-*/(). ")
         if not all(char in allowed_chars for char in expression):
             raise ValueError("Expression contains invalid characters.")
-        
+
         return expression.replace(" ", "")
 
-    def _is_valid_expression(self, expression: str) -> bool:
+    def _is_valid_expression(self) -> bool:
         """
-        Validates the expression for proper structure and balanced parentheses.
+        Checks whether the expression is valid.
 
-        :param expression: The normalized expression to validate.
-        :return: True if the expression is valid, False otherwise.
+        Returns:
+            bool: True if the expression is valid, False otherwise.
         """
-        # Check for balanced parentheses
+        if not self._is_balanced():
+            return False
+
+        # Check for consecutive operators or other invalid patterns
+        if re.search(r'[\+\-\*/]{2,}', self.expression):
+            return False
+
+        if re.search(r'[\+\-\*/]\)$', self.expression):
+            return False
+
+        if re.search(r'^\([\+\-\*/]', self.expression):
+            return False
+
+        return True
+
+    def _is_balanced(self) -> bool:
+        """
+        Checks whether the expression has properly paired parentheses.
+
+        Returns:
+            bool: True if parentheses are correctly paired, False otherwise.
+        """
         stack = []
-        for char in expression:
+        for char in self.expression:
             if char == '(':
                 stack.append(char)
             elif char == ')':
                 if not stack:
                     return False
                 stack.pop()
-        if stack:
-            return False
+        return not stack
 
-        # Check for consecutive operators
-        if re.search(r'[+\-*/]{2,}', expression):
-            return False
-
-        # Check for division by zero
-        if re.search(r'/0(\D|$)', expression):
-            return False
-
-        # Check for proper structure
-        if not re.match(r'^(\d+|\((\d+|\((\d+|\(\d+\))*\))*\))((\+|\-|*|/)(\d+|\((\d+|\((\d+|\(\d+\))*\))*\)))*$', expression):
-            return False
-
-        return True
-
-    def _evaluate_expression(self, expression: str) -> float:
+    def _tokenize(self, expression: str) -> List[Union[str, float]]:
         """
-        Evaluates the normalized and validated expression.
+        Tokenizes the expression into numbers and operators.
 
-        :param expression: The normalized and validated expression.
-        :return: The result of the expression as a float.
+        Args:
+            expression (str): The normalized expression.
+
+        Returns:
+            List[Union[str, float]]: A list of tokens (numbers and operators).
         """
-        # Handle parentheses first
-        while '(' in expression:
-            expression = re.sub(r'\(([^()]+)\)', lambda m: str(self._evaluate_expression(m.group(1))), expression)
+        tokens = []
+        current_number = ""
+        for char in expression:
+            if char in "0123456789.":
+                current_number += char
+            else:
+                if current_number:
+                    tokens.append(float(current_number))
+                    current_number = ""
+                if char != "(" and char != ")":
+                    tokens.append(char)
+                else:
+                    tokens.append(char)
+        if current_number:
+            tokens.append(float(current_number))
+        return tokens
 
-        # Evaluate multiplication and division
-        while '*' in expression or '/' in expression:
-            expression = re.sub(r'(-?\d+(?:\.\d+)?)([*/])(-?\d+(?:\.\d+)?)', 
-                                lambda m: str(self._apply_operation(float(m.group(1)), m.group(2), float(m.group(3)))), 
-                                expression)
-
-        # Evaluate addition and subtraction
-        result = float(re.split(r'([+\-])', expression)[0])
-        for i in range(1, len(re.split(r'([+\-])', expression)) - 1, 2):
-            operation = re.split(r'([+\-])', expression)[i]
-            number = float(re.split(r'([+\-])', expression)[i + 1])
-            result = self._apply_operation(result, operation, number)
-
-        return result
-
-    def _apply_operation(self, a: float, operator: str, b: float) -> float:
+    def _evaluate(self, tokens: List[Union[str, float]]) -> float:
         """
-        Applies the specified operation to two numbers.
+        Evaluates the tokenized expression using the Shunting Yard algorithm and RPN.
 
-        :param a: The first number.
-        :param b: The second number.
-        :param operator: The operation to apply ('+', '-', '*', or '/').
-        :return: The result of the operation.
-        :raises ValueError: If an invalid operator is provided or division by zero is attempted.
+        Args:
+            tokens (List[Union[str, float]]): The tokenized expression.
+
+        Returns:
+            float: The result of the calculation.
+
+        Raises:
+            ValueError: If division by zero occurs.
         """
-        if operator == '+':
-            return a + b
-        elif operator == '-':
-            return a - b
-        elif operator == '*':
-            return a * b
-        elif operator == '/':
-            if b == 0:
-                raise ValueError("Division by zero")
-            return a / b
-        else:
-            raise ValueError(f"Invalid operator: {operator}")
+        def precedence(op: str) -> int:
+            if op in "+-": return 1
+            if op in "*/": return 2
+            return 0
+
+        output_queue = []
+        operator_stack = []
+
+        for token in tokens:
+            if isinstance(token, float):
+                output_queue.append(token)
+            elif token == "(":
+                operator_stack.append(token)
+            elif token == ")":
+                while operator_stack and operator_stack[-1] != "(":
+                    output_queue.append(operator_stack.pop())
+                if operator_stack and operator_stack[-1] == "(":
+                    operator_stack.pop()
+                else:
+                    raise ValueError("Unbalanced parentheses")
+            else:  # operator
+                while (operator_stack and operator_stack[-1] != "(" and
+                       precedence(operator_stack[-1]) >= precedence(token)):
+                    output_queue.append(operator_stack.pop())
+                operator_stack.append(token)
+
+        while operator_stack:
+            output_queue.append(operator_stack.pop())
+
+        # Evaluate RPN
+        stack = []
+        for token in output_queue:
+            if isinstance(token, float):
+                stack.append(token)
+            else:
+                b, a = stack.pop(), stack.pop()
+                if token == "+":
+                    stack.append(a + b)
+                elif token == "-":
+                    stack.append(a - b)
+                elif token == "*":
+                    stack.append(a * b)
+                elif token == "/":
+                    if b == 0:
+                        raise ValueError("Division by zero")
+                    stack.append(a / b)
+
+        return stack[0]
+
+
+# Example usage
+if __name__ == "__main__":
+    try:
+        calc = Calculator("(2 + 3) * 4 - 6 / 2")
+        result = calc.calculate()
+        print(f"Result: {result}")
+    except ValueError as e:
+        print(f"Error: {e}")

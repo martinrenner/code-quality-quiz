@@ -1,106 +1,168 @@
-
 class AsciiArt:
     """
-    A class for creating ASCII art shapes.
-
-    This class provides methods to draw various filled shapes using ASCII characters.
+    A class for generating console-based 2D ASCII art.
     """
 
-    @staticmethod
-    def validate_input(width: int, height: int = None, diameter: int = None) -> None:
+    def draw_square(self, width: int, symbol: str) -> str:
         """
-        Validates input parameters to ensure they are positive integers.
+        Draws a filled square of the given width using the specified symbol.
 
-        :param width: The width of the shape.
-        :param height: The height of the shape, if applicable.
-        :param diameter: The diameter of the circle, if applicable.
-        :raises ValueError: If any of the inputs are not positive integers.
-        """
-        if not isinstance(width, int) or width <= 0:
-            raise ValueError("Width must be a positive integer.")
-        if height is not None and (not isinstance(height, int) or height <= 0):
-            raise ValueError("Height must be a positive integer.")
-        if diameter is not None and (not isinstance(diameter, int) or diameter <= 0):
-            raise ValueError("Diameter must be a positive integer.")
+        Args:
+            width: The width (and height) of the square.
+            symbol: The character to use for drawing.
 
-    @staticmethod
-    def draw_square(width: int, symbol: str) -> str:
-        """
-        Draws a filled square of given width using the specified symbol.
+        Returns:
+            A multi-line string representing the square.
 
-        :param width: The width (and height) of the square.
-        :param symbol: The character to use for drawing.
-        :return: A string representation of the square.
+        Raises:
+            ValueError: If width is not positive or symbol is not a single character.
         """
-        AsciiArt.validate_input(width)
-        return '\n'.join([symbol * width for _ in range(width)])
+        self._validate_dimensions(width)
+        self._validate_symbol(symbol)
 
-    @staticmethod
-    def draw_rectangle(width: int, height: int, symbol: str) -> str:
-        """
-        Draws a filled rectangle of given width and height using the specified symbol.
+        square_str = ""
+        for _ in range(width):
+            square_str += symbol * width + "\n"
+        return square_str
 
-        :param width: The width of the rectangle.
-        :param height: The height of the rectangle.
-        :param symbol: The character to use for drawing.
-        :return: A string representation of the rectangle.
+    def draw_rectangle(self, width: int, height: int, symbol: str) -> str:
         """
-        AsciiArt.validate_input(width, height)
-        return '\n'.join([symbol * width for _ in range(height)])
+        Draws a filled rectangle of the given dimensions using the specified symbol.
 
-    @staticmethod
-    def draw_circle(diameter: int, symbol: str) -> str:
-        """
-        Draws an approximate filled circle of given diameter using the specified symbol.
+        Args:
+            width: The width of the rectangle.
+            height: The height of the rectangle.
+            symbol: The character to use for drawing.
 
-        :param diameter: The diameter of the circle.
-        :param symbol: The character to use for drawing.
-        :return: A string representation of the circle.
+        Returns:
+            A multi-line string representing the rectangle.
+
+        Raises:
+            ValueError: If width or height are not positive, or symbol is not a single character.
         """
-        AsciiArt.validate_input(diameter=diameter)
+        self._validate_dimensions(width, height)
+        self._validate_symbol(symbol)
+
+        rectangle_str = ""
+        for _ in range(height):
+            rectangle_str += symbol * width + "\n"
+        return rectangle_str
+
+    def draw_circle(self, diameter: int, symbol: str) -> str:
+        """
+        Draws an approximate filled circle (more accurately, a filled diamond)
+        of the given diameter using the specified symbol.
+
+        Args:
+            diameter: The diameter of the circle.
+            symbol: The character to use for drawing.
+
+        Returns:
+            A multi-line string representing the circle.
+
+        Raises:
+            ValueError: If diameter is not positive or symbol is not a single character.
+        """
+        self._validate_dimensions(diameter)
+        self._validate_symbol(symbol)
+
         radius = diameter // 2
-        result = []
-        for y in range(diameter):
-            line = ''.join([symbol if (x - radius) ** 2 + (y - radius) ** 2 <= radius ** 2 else ' ' 
-                            for x in range(diameter)])
-            result.append(line)
-        return '\n'.join(result)
+        circle_str = ""
 
-    @staticmethod
-    def draw_triangle(width: int, height: int, symbol: str) -> str:
+        for row in range(-radius, radius + 1):
+            for col in range(-radius, radius + 1):
+                # Simple distance check for a diamond-like shape.
+                if abs(row) + abs(col) <= radius:
+                    circle_str += symbol
+                else:
+                    circle_str += " "  # Add spaces for the outside of the circle
+            circle_str += "\n"
+        return circle_str
+
+    def draw_triangle(self, width: int, height: int, symbol: str) -> str:
         """
-        Draws a filled right-angled triangle of given width and height using the specified symbol.
+        Draws a filled right-angled triangle with the given dimensions.
 
-        :param width: The width of the triangle's base.
-        :param height: The height of the triangle.
-        :param symbol: The character to use for drawing.
-        :return: A string representation of the triangle.
+        Args:
+            width: the base width of the triangle
+            height: The height of the triangle.
+            symbol: The character to use for drawing.
+
+        Returns:
+            A multi-line string representing the triangle.
+
+        Raises:
+            ValueError: If the base width or height are not positive or symbol is not a single character.
         """
-        AsciiArt.validate_input(width, height)
-        result = []
-        for h in range(1, height + 1):
-            w = int(width * h / height)
-            result.append(symbol * w)
-        return '\n'.join(result)
 
-    @staticmethod
-    def draw_pyramid(height: int, symbol: str) -> str:
+        self._validate_dimensions(width, height)
+        self._validate_symbol(symbol)
+
+        triangle_str = ""
+        for row in range(height):
+            # Calculate the number of symbols needed for the current row
+            num_symbols = int((row + 1) * (width / height))
+            triangle_str += symbol * num_symbols + "\n"
+        return triangle_str
+    
+    def draw_pyramid(self, height: int, symbol: str) -> str:
+        """Draws a filled symmetrical pyramid with specified height
+
+        Args:
+            height (int): The height of the pyramid
+            symbol (str): The symbol to draw with.
+
+        Raises:
+            ValueError: If the base width or height are not positive or symbol is not a single character.
+
+        Returns:
+            str: String represention of the pyramid.
         """
-        Draws a filled symmetrical pyramid of given height using the specified symbol.
+        self._validate_dimensions(height)
+        self._validate_symbol(symbol)
 
-        :param height: The height of the pyramid.
-        :param symbol: The character to use for drawing.
-        :return: A string representation of the pyramid.
-        """
-        AsciiArt.validate_input(height)
-        result = []
-        for h in range(1, height + 1):
-            spaces = ' ' * (height - h)
-            symbols = symbol * (2 * h - 1)
-            result.append(spaces + symbols)
-        return '\n'.join(result)
+        pyramid_str = ""
+        for i in range(height):
+            spaces = " " * (height - i - 1)
+            symbols = symbol * (2 * i + 1)
+            pyramid_str += spaces + symbols + "\n"
+        return pyramid_str
+
+    def _validate_dimensions(self, *args):
+        """Helper function to validate dimensions."""
+        for dim in args:
+            if not isinstance(dim, int) or dim <= 0:
+                raise ValueError("Dimensions must be positive integers.")
+
+    def _validate_symbol(self, symbol: str):
+        """Helper function to validate the drawing symbol."""
+        if not isinstance(symbol, str) or len(symbol) != 1:
+            raise ValueError("Symbol must be a single character.")
 
 
-ascii_art = AsciiArt()
-print(ascii_art.draw_square(5, '*'))
-print(ascii_art.draw_circle(10, 'O'))
+
+# Example Usage (and Basic Interactive Test)
+if __name__ == "__main__":
+    art = AsciiArt()
+
+    try:
+        symbol = input("Enter the symbol to use: ")
+        print("\nSquare:")
+        print(art.draw_square(5, symbol))
+
+        print("\nRectangle:")
+        print(art.draw_rectangle(10, 4, symbol))
+
+        print("\nCircle:")
+        print(art.draw_circle(9, symbol))
+
+        print("\nTriangle:")
+        print(art.draw_triangle(7,5, symbol))
+        
+        print("\nPyramid")
+        print(art.draw_pyramid(5, symbol))
+
+
+    except ValueError as e:
+        print(f"Error: {e}")
+

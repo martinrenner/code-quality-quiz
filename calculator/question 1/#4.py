@@ -1,118 +1,43 @@
-
 import re
-from typing import List, Union
 
 class Calculator:
     """
-    A class that implements a basic arithmetic calculator with support for parentheses.
+    A console-based arithmetic calculator that supports addition, subtraction, multiplication, and division,
+    with correct operator precedence and parentheses.
 
     Attributes:
-        None
-
-    Methods:
-        calculate(expression: str) -> float: Evaluates the given arithmetic expression.
+        expression (str): The mathematical expression to be evaluated.
     """
 
-    def calculate(self, expression: str) -> float:
+    def __init__(self, expression: str):
         """
-        Evaluates the given arithmetic expression.
+        Initialize the Calculator with the given expression.
 
         Args:
-            expression (str): A string containing the arithmetic expression to evaluate.
-
-        Returns:
-            float: The result of the evaluated expression.
+            expression (str): The mathematical expression to evaluate.
 
         Raises:
-            ValueError: If the input expression is invalid or contains illegal characters.
+            ValueError: If the expression contains invalid characters or unbalanced parentheses.
         """
-        # Remove all whitespace from the expression
-        expression = expression.replace(" ", "")
+        self.expression = expression
+        self._validate_expression()
 
-        # Validate the expression
-        if not self._is_valid_expression(expression):
-            raise ValueError("Invalid expression")
-
-        # Convert the expression to Reverse Polish Notation (RPN)
-        rpn = self._to_rpn(expression)
-
-        # Evaluate the RPN expression
-        result = self._evaluate_rpn(rpn)
-
-        return result
-
-    def _is_valid_expression(self, expression: str) -> bool:
+    def _validate_expression(self):
         """
-        Validates the given expression for correctness.
+        Validate the expression for correctness.
 
-        Args:
-            expression (str): The arithmetic expression to validate.
-
-        Returns:
-            bool: True if the expression is valid, False otherwise.
+        Raises:
+            ValueError: If the expression contains invalid characters or unbalanced parentheses.
         """
-        # Check for illegal characters
-        if not re.match(r'^[\d\+\-\*\/\(\)\.]+$', expression):
-            return False
+        if not re.match(r'^[\d\s\+\-\*\/\(\)]+$', self.expression):
+            raise ValueError("Invalid characters in expression.")
+        
+        if self.expression.count('(') != self.expression.count(')'):
+            raise ValueError("Unbalanced parentheses in expression.")
 
-        # Check for balanced parentheses
-        if expression.count('(') != expression.count(')'):
-            return False
-
-        # Check for consecutive operators
-        if re.search(r'[\+\-\*\/\(\)]+[\+\-\*\/\(\)]+', expression):
-            return False
-
-        # Check for numbers at the start and end of the expression
-        if not re.match(r'^\-?\d', expression) or not re.search(r'\d$', expression):
-            return False
-
-        # Check for division by zero
-        if '/0' in expression:
-            return False
-
-        return True
-
-    def _to_rpn(self, expression: str) -> List[str]:
+    def calculate(self) -> float:
         """
-        Converts the infix notation expression to Reverse Polish Notation (RPN).
-
-        Args:
-            expression (str): The infix notation expression.
-
-        Returns:
-            List[str]: The expression in RPN.
-        """
-        precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
-        output = []
-        stack = []
-
-        for token in re.findall(r'(\d*\.?\d+|[+\-*/()])', expression):
-            if token.isdigit() or (token.count('.') == 1 and token.replace('.', '').isdigit()):
-                output.append(token)
-            elif token in precedence:
-                while stack and stack[-1] != '(' and precedence[stack[-1]] >= precedence[token]:
-                    output.append(stack.pop())
-                stack.append(token)
-            elif token == '(':
-                stack.append(token)
-            elif token == ')':
-                while stack and stack[-1] != '(':
-                    output.append(stack.pop())
-                if stack and stack[-1] == '(':
-                    stack.pop()
-
-        while stack:
-            output.append(stack.pop())
-
-        return output
-
-    def _evaluate_rpn(self, rpn: List[str]) -> float:
-        """
-        Evaluates an expression in Reverse Polish Notation (RPN).
-
-        Args:
-            rpn (List[str]): The expression in RPN.
+        Evaluate the arithmetic expression and return the result.
 
         Returns:
             float: The result of the evaluated expression.
@@ -120,9 +45,75 @@ class Calculator:
         Raises:
             ValueError: If division by zero is attempted.
         """
+        try:
+            tokens = self._tokenize()
+            postfix = self._infix_to_postfix(tokens)
+            return self._evaluate_postfix(postfix)
+        except ZeroDivisionError:
+            raise ValueError("Division by zero is not allowed.")
+
+    def _tokenize(self) -> list:
+        """
+        Convert the input string into a list of tokens.
+
+        Returns:
+            list: A list of tokens representing numbers and operators.
+        """
+        token_pattern = r'\d*\.?\d+|\+|\-|*|\/|\(|\)'
+        return re.findall(token_pattern, self.expression)
+
+    def _infix_to_postfix(self, tokens: list) -> list:
+        """
+        Convert an infix expression to postfix notation using the Shunting Yard algorithm.
+
+        Args:
+            tokens (list): A list of tokens in infix notation.
+
+        Returns:
+            list: A list of tokens in postfix notation.
+        """
+        precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
+        output_queue = []
+        operator_stack = []
+
+        for token in tokens:
+            if token.replace('.', '').isdigit():
+                output_queue.append(token)
+            elif token in '+-*/':
+                while (operator_stack and operator_stack[-1] != '(' and
+                       precedence.get(operator_stack[-1], 0) >= precedence[token]):
+                    output_queue.append(operator_stack.pop())
+                operator_stack.append(token)
+            elif token == '(':
+                operator_stack.append(token)
+            elif token == ')':
+                while operator_stack and operator_stack[-1] != '(':
+                    output_queue.append(operator_stack.pop())
+                if operator_stack and operator_stack[-1] == '(':
+                    operator_stack.pop()
+                else:
+                    raise ValueError("Mismatched parentheses")
+
+        while operator_stack:
+            if operator_stack[-1] == '(':
+                raise ValueError("Mismatched parentheses")
+            output_queue.append(operator_stack.pop())
+
+        return output_queue
+
+    def _evaluate_postfix(self, postfix: list) -> float:
+        """
+        Evaluate a postfix expression.
+
+        Args:
+            postfix (list): A list of tokens in postfix notation.
+
+        Returns:
+            float: The result of the evaluated postfix expression.
+        """
         stack = []
 
-        for token in rpn:
+        for token in postfix:
             if token.replace('.', '').isdigit():
                 stack.append(float(token))
             else:
@@ -135,20 +126,16 @@ class Calculator:
                     stack.append(a * b)
                 elif token == '/':
                     if b == 0:
-                        raise ValueError("Division by zero")
+                        raise ZeroDivisionError("Division by zero")
                     stack.append(a / b)
 
         return stack[0]
 
-# Example usage
+# Example usage:
 if __name__ == "__main__":
-    calculator = Calculator()
-    while True:
-        try:
-            expression = input("Enter an arithmetic expression (or 'q' to quit): ")
-            if expression.lower() == 'q':
-                break
-            result = calculator.calculate(expression)
-            print(f"Result: {result}")
-        except ValueError as e:
-            print(f"Error: {e}")
+    try:
+        calc = Calculator("3 + 4 * (2 - 1)")
+        result = calc.calculate()
+        print(f"Result: {result}")
+    except ValueError as e:
+        print(f"Error: {e}")
