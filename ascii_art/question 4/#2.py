@@ -1,187 +1,209 @@
-from typing import List
-import math
-
 class AsciiArt:
-    """A class for creating various ASCII art shapes.
-
-    This class provides methods to draw different geometric shapes using ASCII characters.
-    All methods validate inputs and return properly formatted multi-line strings.
     """
-
+    A class for generating ASCII art shapes filled with specified characters.
+    
+    This class provides methods to create various ASCII art shapes such as squares,
+    rectangles, circles, triangles, and pyramids with customizable dimensions and symbols.
+    """
+    
     @staticmethod
-    def _validate_inputs(dimension: int, symbol: str) -> None:
+    def validate_input(dimension: int, symbol: str) -> None:
         """
-        Validates the input parameters for all drawing methods.
-
+        Validates the input parameters for ASCII art generation.
+        
         Args:
-            dimension (int): The size parameter of the shape.
-            symbol (str): The character to be used for drawing.
-
+            dimension (int): The dimension (width, height, etc.) of the shape.
+            symbol (str): The character to be used for drawing the shape.
+            
         Raises:
-            ValueError: If inputs don't meet the requirements.
+            ValueError: If dimensions are non-positive or symbol is not a single character.
         """
-        if not isinstance(dimension, int):
-            raise ValueError("Dimension must be an integer")
         if dimension <= 0:
-            raise ValueError("Dimension must be positive")
+            raise ValueError("Dimensions must be positive integers")
         if len(symbol) != 1:
             raise ValueError("Symbol must be a single character")
-
-    def draw_square(self, width: int, symbol: str) -> str:
+    
+    @classmethod
+    def draw_square(cls, width: int, symbol: str) -> str:
         """
-        Creates a square ASCII art shape.
-
+        Draws a square ASCII art.
+        
         Args:
             width (int): The width and height of the square.
-            symbol (str): The character to use for drawing.
-
+            symbol (str): The character to fill the square with.
+            
         Returns:
             str: A multi-line string representing the square.
-
-        Raises:
-            ValueError: If inputs are invalid.
+            
+        Example:
+            draw_square(3, '*') produces:
+            ***
+            ***
+            ***
         """
-        self._validate_inputs(width, symbol)
-        return '\n'.join([symbol * width] * width)
-
-    def draw_rectangle(self, width: int, height: int, symbol: str) -> str:
+        cls.validate_input(width, symbol)
+        return cls.draw_rectangle(width, width, symbol)
+    
+    @classmethod
+    def draw_rectangle(cls, width: int, height: int, symbol: str) -> str:
         """
-        Creates a rectangular ASCII art shape.
-
+        Draws a rectangular ASCII art.
+        
         Args:
             width (int): The width of the rectangle.
             height (int): The height of the rectangle.
-            symbol (str): The character to use for drawing.
-
+            symbol (str): The character to fill the rectangle with.
+            
         Returns:
             str: A multi-line string representing the rectangle.
-
-        Raises:
-            ValueError: If inputs are invalid.
+            
+        Example:
+            draw_rectangle(4, 2, '#') produces:
+            ####
+            ####
         """
-        self._validate_inputs(width, symbol)
-        self._validate_inputs(height, symbol)
-        return '\n'.join([symbol * width] * height)
-
-    def draw_circle(self, diameter: int, symbol: str) -> str:
-        """
-        Creates a circular ASCII art shape.
-
-        Args:
-            diameter (int): The diameter of the circle.
-            symbol (str): The character to use for drawing.
-
-        Returns:
-            str: A multi-line string representing the circle.
-
-        Raises:
-            ValueError: If inputs are invalid.
-        """
-        self._validate_inputs(diameter, symbol)
+        cls.validate_input(width, symbol)
+        cls.validate_input(height, symbol)
         
-        radius = diameter // 2
-        circle: List[str] = []
-        
-        for i in range(-radius, radius + 1):
-            line = []
-            for j in range(-radius, radius + 1):
-                if (i**2 + j**2) <= radius**2:
-                    line.append(symbol)
-                else:
-                    line.append(' ')
-            circle.append(''.join(line))
-        
-        return '\n'.join(circle)
-
-    def draw_triangle(self, width: int, height: int, symbol: str) -> str:
+        row = symbol * width
+        result = [row for _ in range(height)]
+        return "\n".join(result)
+    
+    @classmethod
+    def draw_triangle(cls, width: int, height: int, symbol: str) -> str:
         """
-        Creates a right-angled triangle ASCII art shape.
-
+        Draws a right-angled triangle ASCII art.
+        
         Args:
             width (int): The base width of the triangle.
             height (int): The height of the triangle.
-            symbol (str): The character to use for drawing.
-
+            symbol (str): The character to fill the triangle with.
+            
         Returns:
             str: A multi-line string representing the triangle.
-
-        Raises:
-            ValueError: If inputs are invalid.
+            
+        Example:
+            draw_triangle(3, 3, '^') produces:
+            ^
+            ^^
+            ^^^
         """
-        self._validate_inputs(width, symbol)
-        self._validate_inputs(height, symbol)
+        cls.validate_input(width, symbol)
+        cls.validate_input(height, symbol)
         
-        triangle = []
-        for i in range(height):
-            symbols = math.ceil((i + 1) * (width / height))
-            triangle.append(symbol * symbols)
+        result = []
+        # Calculate how many symbols to add per row
+        step = width / height
         
-        return '\n'.join(triangle)
-
-    def draw_pyramid(self, height: int, symbol: str) -> str:
+        for i in range(1, height + 1):
+            # Calculate the number of symbols in this row
+            num_symbols = round(i * step)
+            result.append(symbol * num_symbols)
+            
+        return "\n".join(result)
+    
+    @classmethod
+    def draw_pyramid(cls, height: int, symbol: str) -> str:
         """
-        Creates a pyramid ASCII art shape.
-
+        Draws a symmetrical pyramid ASCII art.
+        
         Args:
             height (int): The height of the pyramid.
-            symbol (str): The character to use for drawing.
-
+            symbol (str): The character to fill the pyramid with.
+            
         Returns:
             str: A multi-line string representing the pyramid.
-
-        Raises:
-            ValueError: If inputs are invalid.
+            
+        Example:
+            draw_pyramid(3, '@') produces:
+              @
+             @@@
+            @@@@@
         """
-        self._validate_inputs(height, symbol)
+        cls.validate_input(height, symbol)
         
-        pyramid = []
-        for i in range(height):
-            spaces = " " * (height - i - 1)
-            symbols = symbol * (2 * i + 1)
-            pyramid.append(spaces + symbols)
+        result = []
+        width = 2 * height - 1  # Maximum width at the base of the pyramid
         
-        return '\n'.join(pyramid)
+        for i in range(1, height + 1):
+            # Calculate the number of symbols in this row
+            num_symbols = 2 * i - 1
+            # Calculate padding to center the symbols
+            padding = (width - num_symbols) // 2
+            
+            line = " " * padding + symbol * num_symbols
+            result.append(line)
+            
+        return "\n".join(result)
+    
+    @classmethod
+    def draw_circle(cls, diameter: int, symbol: str) -> str:
+        """
+        Draws an approximation of a circle in ASCII art.
+        
+        Args:
+            diameter (int): The diameter of the circle.
+            symbol (str): The character to fill the circle with.
+            
+        Returns:
+            str: A multi-line string representing the circle.
+            
+        Example:
+            draw_circle(5, 'o') produces:
+             ooo
+            ooooo
+            ooooo
+            ooooo
+             ooo
+        """
+        cls.validate_input(diameter, symbol)
+        
+        result = []
+        radius = diameter / 2
+        
+        for y in range(diameter):
+            line = []
+            for x in range(diameter):
+                # Calculate the distance from center
+                dx = x - radius + 0.5
+                dy = y - radius + 0.5
+                distance = (dx ** 2 + dy ** 2) ** 0.5
+                
+                # Add symbol if within the circle (with small buffer for better appearance)
+                if distance <= radius + 0.1:
+                    line.append(symbol)
+                else:
+                    line.append(" ")
+                    
+            result.append("".join(line))
+            
+        return "\n".join(result)
 
 
 def main():
     """
-    Main function to demonstrate the ASCII art functionality.
+    Main function to demonstrate the ASCII art generator functionality.
     """
-    try:
-        ascii_art = AsciiArt()
-        
-        # Example usage
-        print("Square (4x4, using '#'):")
-        print(ascii_art.draw_square(4, '#'))
-        print("\nRectangle (5x3, using '*'):")
-        print(ascii_art.draw_rectangle(5, 3, '*'))
-        print("\nCircle (diameter 7, using '@'):")
-        print(ascii_art.draw_circle(7, '@'))
-        print("\nTriangle (width 5, height 3, using '$'):")
-        print(ascii_art.draw_triangle(5, 3, '$'))
-        print("\nPyramid (height 4, using '^'):")
-        print(ascii_art.draw_pyramid(4, '^'))
-        
-    except ValueError as e:
-        print(f"Error: {e}")
+    print("Welcome to the ASCII Art Generator!")
+    print("Here are some examples of what this program can create:")
+    
+    print("\nSquare (4x4 with '#'):")
+    print(AsciiArt.draw_square(4, "#"))
+    
+    print("\nRectangle (6x3 with '*'):")
+    print(AsciiArt.draw_rectangle(6, 3, "*"))
+    
+    print("\nRight-angled Triangle (4x4 with '^'):")
+    print(AsciiArt.draw_triangle(4, 4, "^"))
+    
+    print("\nPyramid (5 rows with '@'):")
+    print(AsciiArt.draw_pyramid(5, "@"))
+    
+    print("\nCircle (diameter 9 with 'o'):")
+    print(AsciiArt.draw_circle(9, "o"))
+    
+    print("\nTry creating your own ASCII art!")
 
 
 if __name__ == "__main__":
     main()
-
-
-def test_ascii_art():
-    art = AsciiArt()
-    
-    # Test square
-    assert art.draw_square(2, '*') == '**\n**'
-    
-    # Test rectangle
-    assert art.draw_rectangle(2, 3, '#') == '##\n##\n##'
-    
-    # Test invalid inputs
-    try:
-        art.draw_square(-1, '*')
-        assert False, "Should raise ValueError"
-    except ValueError:
-        pass

@@ -1,233 +1,259 @@
-from typing import List, Union, Optional
-from decimal import Decimal, InvalidOperation
-import re
-
 class Calculator:
     """
-    A console-based arithmetic calculator that supports basic operations and parentheses.
-    Implements the requirements of ISO/IEC 25010 for software quality.
+    A calculator that evaluates arithmetic expressions following standard order of operations.
+    
+    This calculator supports:
+    - Basic operations: addition, subtraction, multiplication, division
+    - Parentheses for grouping
+    - Decimal and negative numbers
+    
+    It follows the PEMDAS order of operations and includes comprehensive validation.
     """
-
-    OPERATORS = {
-        '+': (1, lambda x, y: x + y),
-        '-': (1, lambda x, y: x - y),
-        '*': (2, lambda x, y: x * y),
-        '/': (2, lambda x, y: x / y)
-    }
-
-    def __init__(self):
-        """Initialize the calculator with empty state."""
-        self.tokens: List[str] = []
-        
+    
     def calculate(self, expression: str) -> float:
         """
-        Evaluates a mathematical expression and returns the result.
-
+        Evaluates a given arithmetic expression and returns the result.
+        
         Args:
-            expression (str): The mathematical expression to evaluate.
-
+            expression (str): The arithmetic expression to evaluate (e.g., "2 + 3 * (4 - 1)")
+            
         Returns:
-            float: The result of the evaluation.
-
+            float: The result of evaluating the expression
+            
         Raises:
-            ValueError: If the expression is invalid or contains syntax errors.
-            ZeroDivisionError: If division by zero is attempted.
+            ValueError: If the expression has invalid syntax, unbalanced parentheses,
+                       invalid characters, or attempts division by zero
         """
-        try:
-            # Normalize and validate the expression
-            normalized_expr = self._normalize_expression(expression)
-            if not self._validate_expression(normalized_expr):
-                raise ValueError("Invalid expression syntax")
-
-            # Tokenize the expression
-            self.tokens = self._tokenize(normalized_expr)
-            
-            # Convert to postfix and evaluate
-            result = self._evaluate_postfix(self._to_postfix())
-            
-            return float(result)
-            
-        except (ValueError, ZeroDivisionError) as e:
-            raise e
-        except Exception as e:
-            raise ValueError(f"Invalid expression: {str(e)}")
-
+        # Validate and normalize the input expression
+        normalized_exp = self._normalize_expression(expression)
+        # Parse and evaluate the expression
+        return self._evaluate(normalized_exp)
+    
     def _normalize_expression(self, expression: str) -> str:
         """
-        Normalizes the input expression by removing spaces and validating characters.
-
+        Validates and normalizes an arithmetic expression.
+        
         Args:
-            expression (str): The input mathematical expression.
-
+            expression (str): The raw arithmetic expression
+            
         Returns:
-            str: Normalized expression.
-
+            str: The normalized expression with spaces removed
+            
         Raises:
-            ValueError: If the expression contains invalid characters.
+            ValueError: If the expression contains invalid characters or has unbalanced parentheses
         """
-        # Remove all whitespace
-        expr = expression.replace(" ", "")
+        if not expression:
+            raise ValueError("Expression cannot be empty")
+            
+        # Check for invalid characters
+        allowed_chars = set("0123456789+-*/().^ ")
+        if not all(char in allowed_chars for char in expression):
+            invalid_chars = ''.join(set(char for char in expression if char not in allowed_chars))
+            raise ValueError(f"Expression contains invalid characters: {invalid_chars}")
         
-        # Validate characters
-        allowed_chars = set("0123456789+-*/.()")
-        if not all(char in allowed_chars for char in expr):
-            raise ValueError("Expression contains invalid characters")
+        # Check for balanced parentheses
+        if not self._is_balanced(expression):
+            raise ValueError("Expression has unbalanced parentheses")
             
-        return expr
-
-    def _validate_expression(self, expression: str) -> bool:
+        return expression.replace(" ", "")
+    
+    def _is_balanced(self, expression: str) -> bool:
         """
-        Validates the expression syntax.
-
-        Args:
-            expression (str): The normalized expression to validate.
-
-        Returns:
-            bool: True if the expression is valid, False otherwise.
-        """
-        # Check parentheses balance
-        parentheses_count = 0
-        for char in expression:
-            if char == '(':
-                parentheses_count += 1
-            elif char == ')':
-                parentheses_count -= 1
-            if parentheses_count < 0:
-                return False
-                
-        if parentheses_count != 0:
-            return False
-
-        # Check for invalid operator combinations
-        if re.search(r'[+\-*/]{2,}', expression):
-            return False
-            
-        # Check if expression starts with valid character
-        if not expression[0] in '0123456789.(':
-            return False
-            
-        return True
-
-    def _tokenize(self, expression: str) -> List[str]:
-        """
-        Converts the expression string into a list of tokens.
-
-        Args:
-            expression (str): The normalized expression to tokenize.
-
-        Returns:
-            List[str]: List of tokens.
-        """
-        tokens = []
-        current_number = ''
+        Checks if the parentheses in an expression are properly balanced.
         
-        for char in expression:
-            if char in '0123456789.':
-                current_number += char
-            else:
-                if current_number:
-                    tokens.append(current_number)
-                    current_number = ''
-                tokens.append(char)
-                
-        if current_number:
-            tokens.append(current_number)
-            
-        return tokens
-
-    def _to_postfix(self) -> List[str]:
-        """
-        Converts the tokenized infix expression to postfix notation.
-
-        Returns:
-            List[str]: The expression in postfix notation.
-        """
-        output = []
-        operator_stack = []
-        
-        for token in self.tokens:
-            if self._is_number(token):
-                output.append(token)
-            elif token == '(':
-                operator_stack.append(token)
-            elif token == ')':
-                while operator_stack and operator_stack[-1] != '(':
-                    output.append(operator_stack.pop())
-                operator_stack.pop()  # Remove '('
-            else:  # Operator
-                while (operator_stack and operator_stack[-1] != '(' and
-                       self.OPERATORS[token][0] <= self.OPERATORS[operator_stack[-1]][0]):
-                    output.append(operator_stack.pop())
-                operator_stack.append(token)
-                
-        while operator_stack:
-            output.append(operator_stack.pop())
-            
-        return output
-
-    def _evaluate_postfix(self, postfix: List[str]) -> Decimal:
-        """
-        Evaluates a postfix expression.
-
         Args:
-            postfix (List[str]): The expression in postfix notation.
-
+            expression (str): The arithmetic expression
+            
         Returns:
-            Decimal: The result of the evaluation.
-
-        Raises:
-            ValueError: If the expression is invalid.
-            ZeroDivisionError: If division by zero is attempted.
+            bool: True if parentheses are balanced, False otherwise
         """
         stack = []
+        for char in expression:
+            if char == '(':
+                stack.append(char)
+            elif char == ')':
+                if not stack:
+                    return False
+                stack.pop()
+        return len(stack) == 0
+    
+    def _evaluate(self, expression: str) -> float:
+        """
+        Evaluates a normalized arithmetic expression.
         
-        for token in postfix:
-            if self._is_number(token):
-                stack.append(Decimal(token))
-            else:
-                b = stack.pop()
-                a = stack.pop()
-                
-                if token == '/' and b == 0:
-                    raise ZeroDivisionError("Division by zero")
-                    
-                result = self.OPERATORS[token][1](a, b)
-                stack.append(result)
-                
-        return stack[0]
-
-    @staticmethod
-    def _is_number(token: str) -> bool:
-        """
-        Checks if a token is a valid number.
-
         Args:
-            token (str): The token to check.
-
+            expression (str): The normalized arithmetic expression
+            
         Returns:
-            bool: True if the token is a valid number, False otherwise.
+            float: The result of evaluating the expression
+            
+        Raises:
+            ValueError: If division by zero is attempted or the expression is invalid
         """
+        # Recursive descent parser to handle order of operations
+        return self._parse_addition_subtraction(expression, 0)[0]
+    
+    def _parse_addition_subtraction(self, expression: str, index: int) -> tuple[float, int]:
+        """
+        Parses terms connected by addition and subtraction.
+        
+        Args:
+            expression (str): The arithmetic expression
+            index (int): The current position in the expression
+            
+        Returns:
+            tuple[float, int]: The result value and the new index in the expression
+            
+        Raises:
+            ValueError: If the expression has invalid syntax or operations
+        """
+        # Parse the first term
+        value, index = self._parse_multiplication_division(expression, index)
+        
+        # Continue parsing if there are more terms
+        while index < len(expression):
+            if expression[index] == '+':
+                # Addition
+                right_value, index = self._parse_multiplication_division(expression, index + 1)
+                value += right_value
+            elif expression[index] == '-':
+                # Subtraction
+                right_value, index = self._parse_multiplication_division(expression, index + 1)
+                value -= right_value
+            else:
+                # Not an addition or subtraction operator, exit the loop
+                break
+        
+        return value, index
+    
+    def _parse_multiplication_division(self, expression: str, index: int) -> tuple[float, int]:
+        """
+        Parses factors connected by multiplication and division.
+        
+        Args:
+            expression (str): The arithmetic expression
+            index (int): The current position in the expression
+            
+        Returns:
+            tuple[float, int]: The result value and the new index in the expression
+            
+        Raises:
+            ValueError: If division by zero is attempted or expression is invalid
+        """
+        # Parse the first factor
+        value, index = self._parse_factor(expression, index)
+        
+        # Continue parsing if there are more factors
+        while index < len(expression):
+            if expression[index] == '*':
+                # Multiplication
+                right_value, index = self._parse_factor(expression, index + 1)
+                value *= right_value
+            elif expression[index] == '/':
+                # Division (check for division by zero)
+                right_value, index = self._parse_factor(expression, index + 1)
+                if right_value == 0:
+                    raise ValueError("Division by zero is not allowed")
+                value /= right_value
+            else:
+                # Not a multiplication or division operator, exit the loop
+                break
+        
+        return value, index
+    
+    def _parse_factor(self, expression: str, index: int) -> tuple[float, int]:
+        """
+        Parses a factor: number, parenthesized expression, or negative value.
+        
+        Args:
+            expression (str): The arithmetic expression
+            index (int): The current position in the expression
+            
+        Returns:
+            tuple[float, int]: The factor value and the new index in the expression
+            
+        Raises:
+            ValueError: If the expression has invalid syntax
+        """
+        if index >= len(expression):
+            raise ValueError("Unexpected end of expression")
+        
+        # Handle negative numbers
+        if expression[index] == '-':
+            value, index = self._parse_factor(expression, index + 1)
+            return -value, index
+            
+        # Handle parenthesized expressions
+        if expression[index] == '(':
+            # Evaluate the expression inside the parentheses
+            value, index = self._parse_addition_subtraction(expression, index + 1)
+            
+            # Check for closing parenthesis
+            if index >= len(expression) or expression[index] != ')':
+                raise ValueError("Missing closing parenthesis")
+            
+            return value, index + 1
+        
+        # Handle numbers (both integers and floating-point)
+        if expression[index].isdigit() or expression[index] == '.':
+            start_index = index
+            # Parse the digits
+            has_decimal = False
+            while (index < len(expression) and 
+                   (expression[index].isdigit() or 
+                    (expression[index] == '.' and not has_decimal))):
+                if expression[index] == '.':
+                    has_decimal = True
+                index += 1
+            
+            # Convert the substring to a number
+            try:
+                value = float(expression[start_index:index])
+                return value, index
+            except ValueError:
+                raise ValueError(f"Invalid number format: {expression[start_index:index]}")
+        
+        # If we get here, the expression is invalid
+        raise ValueError(f"Unexpected character at position {index}: {expression[index]}")
+
+
+def main():
+    """
+    Main function to interact with the calculator via console.
+    
+    Provides an interactive console interface for the calculator, allowing
+    users to input expressions and see results until they choose to exit.
+    """
+    calculator = Calculator()
+    
+    print("Console Calculator")
+    print("Enter an arithmetic expression to calculate (or 'exit' to quit)")
+    print("Examples: 2+3*4, (2.5+3.5)/2, 10-5*2")
+    
+    while True:
+        user_input = input("\nEnter expression: ").strip()
+        
+        if user_input.lower() in ('exit', 'quit'):
+            print("Goodbye!")
+            break
+            
+        if not user_input:
+            continue
+            
         try:
-            Decimal(token)
-            return True
-        except InvalidOperation:
-            return False
+            result = calculator.calculate(user_input)
+            
+            # For clean integer results, display without decimal places
+            if result == int(result):
+                print(f"Result: {int(result)}")
+            else:
+                print(f"Result: {result}")
+                
+        except ValueError as e:
+            print(f"Error: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
 
-# Create calculator instance
-calc = Calculator()
-
-# Example calculations
-print(calc.calculate("2 + 3 * 4"))  # Output: 14.0
-print(calc.calculate("(2 + 3) * 4"))  # Output: 20.0
-print(calc.calculate("2.5 + 3.5"))  # Output: 6.0
-
-
-try:
-    calc.calculate("2 + / 3")  # Raises ValueError for invalid syntax
-    calc.calculate("2 / 0")    # Raises ZeroDivisionError
-    calc.calculate("2 + @")    # Raises ValueError for invalid characters
-except ValueError as e:
-    print(f"Error: {e}")
-except ZeroDivisionError as e:
-    print(f"Error: {e}")
+if __name__ == "__main__":
+    main()

@@ -1,82 +1,89 @@
-from typing import List, Tuple
-import re
-from decimal import Decimal, InvalidOperation
-
 class Calculator:
     """
-    A console-based arithmetic calculator that supports basic operations
-    and follows the order of operations (PEMDAS).
+    A console-based arithmetic calculator that evaluates mathematical expressions.
+    
+    This calculator supports:
+    - Basic operations: addition, subtraction, multiplication, division
+    - Parentheses for grouping expressions
+    - Proper order of operations (PEMDAS)
+    - Decimal and negative numbers
+    - Error detection for invalid inputs
     """
-
+    
     def __init__(self):
-        """Initialize the calculator with allowed operators and their precedence."""
-        self.operators = {
-            '+': 1,
-            '-': 1,
-            '*': 2,
-            '/': 2
-        }
-
+        """Initialize the Calculator object."""
+        self.position = 0
+        self.expression = ""
+    
     def calculate(self, expression: str) -> float:
         """
         Evaluates a mathematical expression and returns the result.
-
+        
         Args:
-            expression (str): The mathematical expression to evaluate.
-
+            expression (str): A string containing a mathematical expression.
+                Supports +, -, *, /, parentheses, integers, and decimals.
+                
         Returns:
-            float: The result of the evaluation.
-
+            float: The result of the evaluated expression.
+            
         Raises:
-            ValueError: If the expression is invalid or contains syntax errors.
-            ZeroDivisionError: If division by zero is attempted.
+            ValueError: If the expression contains syntax errors or invalid operations.
+            ZeroDivisionError: If the expression involves division by zero.
         """
-        try:
-            # Normalize and validate the expression
-            normalized_expr = self._normalize_expression(expression)
-            if not self._is_balanced(normalized_expr):
-                raise ValueError("Unbalanced parentheses")
-
-            # Convert expression to tokens
-            tokens = self._tokenize(normalized_expr)
-            
-            # Convert to postfix notation and evaluate
-            postfix = self._to_postfix(tokens)
-            result = self._evaluate_postfix(postfix)
-            
-            return float(result)
-
-        except (ValueError, ZeroDivisionError) as e:
-            raise e
-        except Exception as e:
-            raise ValueError(f"Invalid expression: {str(e)}")
-
+        # Reset state
+        self.position = 0
+        
+        # Normalize and validate expression
+        self.expression = self._normalize_expression(expression)
+        
+        # Check for balanced parentheses
+        if not self._is_balanced_parentheses(self.expression):
+            raise ValueError("Unbalanced parentheses in the expression.")
+        
+        # Parse and evaluate the expression
+        result = self._parse_expression()
+        
+        # Check if the entire expression was consumed
+        if self.position < len(self.expression):
+            raise ValueError(f"Unexpected character '{self.expression[self.position]}' at position {self.position}")
+        
+        return result
+    
     def _normalize_expression(self, expression: str) -> str:
         """
-        Normalizes the expression by removing spaces and validating characters.
-
+        Normalizes a mathematical expression by removing spaces and validating characters.
+        
         Args:
-            expression (str): The input expression.
-
+            expression (str): A mathematical expression as a string.
+            
         Returns:
-            str: Normalized expression.
-
+            str: The normalized expression without spaces.
+            
         Raises:
-            ValueError: If invalid characters are found.
+            ValueError: If the expression contains invalid characters.
         """
-        expression = expression.replace(" ", "")
-        allowed_chars = set("0123456789+-*/(). ")
-        if not all(char in allowed_chars for char in expression):
-            raise ValueError("Expression contains invalid characters")
-        return expression
-
-    def _is_balanced(self, expression: str) -> bool:
+        # Remove spaces
+        normalized = expression.replace(" ", "")
+        
+        # Validate characters
+        allowed_chars = set("0123456789+-*/().eE")
+        if not all(char in allowed_chars for char in normalized):
+            invalid_chars = [char for char in normalized if char not in allowed_chars]
+            raise ValueError(f"Expression contains invalid characters: {invalid_chars}")
+        
+        # Basic initial structure validation
+        if not normalized:
+            raise ValueError("Empty expression.")
+        
+        return normalized
+    
+    def _is_balanced_parentheses(self, expression: str) -> bool:
         """
-        Checks if parentheses in the expression are properly balanced.
-
+        Checks whether parentheses in the expression are properly balanced.
+        
         Args:
-            expression (str): The normalized expression.
-
+            expression (str): A string containing a mathematical expression.
+            
         Returns:
             bool: True if parentheses are balanced, False otherwise.
         """
@@ -89,131 +96,178 @@ class Calculator:
                     return False
                 stack.pop()
         return len(stack) == 0
-
-    def _tokenize(self, expression: str) -> List[str]:
+    
+    def _parse_expression(self) -> float:
         """
-        Converts the expression string into a list of tokens.
-
-        Args:
-            expression (str): The normalized expression.
-
-        Returns:
-            List[str]: List of tokens (numbers and operators).
-        """
-        tokens = []
-        number = ""
+        Parses and evaluates an expression.
         
-        for i, char in enumerate(expression):
-            if char.isdigit() or char == '.':
-                number += char
-            else:
-                if number:
-                    tokens.append(number)
-                    number = ""
-                if char in self.operators or char in '()':
-                    tokens.append(char)
-                    
-        if number:
-            tokens.append(number)
+        Returns:
+            float: The result of the evaluated expression.
             
-        return tokens
-
-    def _to_postfix(self, tokens: List[str]) -> List[str]:
+        Raises:
+            ValueError: If the expression contains syntax errors.
         """
-        Converts infix notation to postfix notation using the Shunting Yard algorithm.
-
-        Args:
-            tokens (List[str]): List of tokens in infix notation.
-
+        return self._parse_addition_subtraction()
+    
+    def _parse_addition_subtraction(self) -> float:
+        """
+        Parses and evaluates addition and subtraction operations.
+        
         Returns:
-            List[str]: List of tokens in postfix notation.
+            float: The result of the evaluated expression.
         """
-        output = []
-        stack = []
-
-        for token in tokens:
-            if self._is_number(token):
-                output.append(token)
-            elif token == '(':
-                stack.append(token)
-            elif token == ')':
-                while stack and stack[-1] != '(':
-                    output.append(stack.pop())
-                stack.pop()  # Remove '('
-            else:
-                while (stack and stack[-1] != '(' and 
-                       self.operators.get(stack[-1], 0) >= self.operators.get(token, 0)):
-                    output.append(stack.pop())
-                stack.append(token)
-
-        while stack:
-            output.append(stack.pop())
-
-        return output
-
-    def _evaluate_postfix(self, tokens: List[str]) -> Decimal:
+        left = self._parse_multiplication_division()
+        
+        while self.position < len(self.expression):
+            operator = self.expression[self.position]
+            
+            if operator not in ['+', '-']:
+                break
+                
+            self.position += 1
+            right = self._parse_multiplication_division()
+            
+            if operator == '+':
+                left += right
+            else:  # operator == '-'
+                left -= right
+                
+        return left
+    
+    def _parse_multiplication_division(self) -> float:
         """
-        Evaluates a postfix expression.
-
-        Args:
-            tokens (List[str]): List of tokens in postfix notation.
-
+        Parses and evaluates multiplication and division operations.
+        
         Returns:
-            Decimal: The result of the evaluation.
-
+            float: The result of the evaluated expression.
+            
         Raises:
             ZeroDivisionError: If division by zero is attempted.
         """
-        stack = []
-
-        for token in tokens:
-            if self._is_number(token):
-                stack.append(Decimal(token))
-            else:
-                b = stack.pop()
-                a = stack.pop()
+        left = self._parse_number_or_parenthesis()
+        
+        while self.position < len(self.expression):
+            operator = self.expression[self.position]
+            
+            if operator not in ['*', '/']:
+                break
                 
-                if token == '+':
-                    stack.append(a + b)
-                elif token == '-':
-                    stack.append(a - b)
-                elif token == '*':
-                    stack.append(a * b)
-                elif token == '/':
-                    if b == 0:
-                        raise ZeroDivisionError("Division by zero")
-                    stack.append(a / b)
-
-        return stack[0]
-
-    @staticmethod
-    def _is_number(token: str) -> bool:
+            self.position += 1
+            right = self._parse_number_or_parenthesis()
+            
+            if operator == '*':
+                left *= right
+            else:  # operator == '/'
+                if right == 0:
+                    raise ZeroDivisionError("Division by zero is not allowed.")
+                left /= right
+                
+        return left
+    
+    def _parse_number_or_parenthesis(self) -> float:
         """
-        Checks if a token is a valid number.
-
-        Args:
-            token (str): The token to check.
-
+        Parses a number or a parenthesized expression.
+        
         Returns:
-            bool: True if the token is a valid number, False otherwise.
+            float: The parsed number or the result of the parenthesized expression.
+            
+        Raises:
+            ValueError: If the syntax is invalid.
         """
+        # Check for parenthesis
+        if self.position < len(self.expression) and self.expression[self.position] == '(':
+            self.position += 1  # Skip the opening parenthesis
+            result = self._parse_expression()
+            
+            # Ensure closing parenthesis
+            if self.position >= len(self.expression) or self.expression[self.position] != ')':
+                raise ValueError("Missing closing parenthesis.")
+                
+            self.position += 1  # Skip the closing parenthesis
+            return result
+        
+        # Handle unary plus/minus
+        if self.position < len(self.expression) and self.expression[self.position] in ['+', '-']:
+            sign = -1 if self.expression[self.position] == '-' else 1
+            self.position += 1
+            return sign * self._parse_number_or_parenthesis()
+        
+        # Parse a number
+        return self._parse_number()
+    
+    def _parse_number(self) -> float:
+        """
+        Parses a numeric value from the current position in the expression.
+        
+        Returns:
+            float: The parsed numeric value.
+            
+        Raises:
+            ValueError: If a valid number cannot be parsed.
+        """
+        start_pos = self.position
+        
+        # Check if we're at the end of the expression
+        if start_pos >= len(self.expression):
+            raise ValueError("Expected a number but reached end of expression.")
+        
+        # Check if the character at the current position is a digit or decimal point
+        if not (self.expression[start_pos].isdigit() or self.expression[start_pos] == '.'):
+            raise ValueError(f"Expected a number at position {start_pos}, found '{self.expression[start_pos]}'")
+        
+        # Scan to find the end of the number
+        while (self.position < len(self.expression) and 
+               (self.expression[self.position].isdigit() or 
+                self.expression[self.position] == '.' or 
+                self.expression[self.position] in ['e', 'E'])):
+            
+            # Handle scientific notation correctly
+            if self.expression[self.position] in ['e', 'E']:
+                self.position += 1
+                # Check for potential +/- after E
+                if (self.position < len(self.expression) and 
+                    self.expression[self.position] in ['+', '-']):
+                    self.position += 1
+            else:
+                self.position += 1
+        
+        # Extract the number string
+        number_str = self.expression[start_pos:self.position]
+        
         try:
-            Decimal(token)
-            return True
-        except InvalidOperation:
-            return False
+            # Convert to float
+            return float(number_str)
+        except ValueError:
+            raise ValueError(f"Invalid number format: {number_str}")
 
 
-# Create calculator instance
-calc = Calculator()
+def main():
+    """
+    Main function to run the calculator in console mode.
+    Handles user input and displays results.
+    """
+    calculator = Calculator()
+    print("Console Calculator - Type 'exit' to quit")
+    
+    while True:
+        try:
+            expression = input("Enter expression: ")
+            if expression.lower() == 'exit':
+                break
+                
+            result = calculator.calculate(expression)
+            
+            # Format output: keep as integer if it's a whole number
+            if result == int(result):
+                print(f"Result: {int(result)}")
+            else:
+                print(f"Result: {result}")
+                
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
-# Example calculations
-try:
-    print(calc.calculate("2 + 3 * 4"))  # Output: 14.0
-    print(calc.calculate("(2 + 3) * 4"))  # Output: 20.0
-    print(calc.calculate("2.5 + 3.7"))  # Output: 6.2
-    print(calc.calculate("10 / 2"))  # Output: 5.0
-except ValueError as e:
-    print(f"Error: {e}")
-except ZeroDivisionError as e:
-    print(f"Error: {e}")
+
+if __name__ == "__main__":
+    main()
